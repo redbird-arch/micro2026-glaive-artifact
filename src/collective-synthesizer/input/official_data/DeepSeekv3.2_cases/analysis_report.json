@@ -1,0 +1,211 @@
+{
+  "inputs": {
+    "prefill_dir": "/Users/galois/Coding/DeepSeek_v3.2_P",
+    "decode_dir": "/Users/galois/Coding/DeepSeek_v3.2_P+D",
+    "decode_prefill_ignored": true
+  },
+  "prefill": {
+    "phase": "prefill",
+    "layer_count": 58,
+    "layer_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57
+    ],
+    "declared_rows_per_layer": 4763,
+    "usable_rows_per_layer": 4762,
+    "skipped_first_row": true,
+    "matrix_width": 256,
+    "full_synthetic_bs1_groups": 18,
+    "partial_rows_in_last_synthetic_bs1": 154,
+    "total_synthetic_bs1_groups": 19,
+    "final_covering_bs": 32,
+    "batches": {
+      "1": {
+        "full_batches": 18,
+        "files_written": 1044,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/prefill_bs1"
+      },
+      "2": {
+        "full_batches": 9,
+        "files_written": 522,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/prefill_bs2"
+      },
+      "4": {
+        "full_batches": 4,
+        "files_written": 232,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/prefill_bs4"
+      },
+      "8": {
+        "full_batches": 2,
+        "files_written": 116,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/prefill_bs8"
+      },
+      "16": {
+        "full_batches": 1,
+        "files_written": 58,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/prefill_bs16"
+      },
+      "32": {
+        "full_batches": 0,
+        "partial_actual_groups": [
+          19
+        ],
+        "files_written": 58,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/prefill_bs32"
+      }
+    }
+  },
+  "decode": {
+    "phase": "decode",
+    "layer_count": 58,
+    "layer_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57
+    ],
+    "declared_rows_per_layer": 9564,
+    "usable_rows_per_layer": 9564,
+    "skipped_first_row": false,
+    "matrix_width": 256,
+    "full_synthetic_bs1_groups": 37,
+    "partial_rows_in_last_synthetic_bs1": 92,
+    "total_synthetic_bs1_groups": 38,
+    "final_covering_bs": 64,
+    "batches": {
+      "8": {
+        "full_batches": 4,
+        "files_written": 232,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/decode_bs8"
+      },
+      "16": {
+        "full_batches": 2,
+        "files_written": 116,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/decode_bs16"
+      },
+      "32": {
+        "full_batches": 1,
+        "files_written": 58,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/decode_bs32"
+      },
+      "64": {
+        "full_batches": 0,
+        "partial_actual_groups": [
+          38
+        ],
+        "files_written": 58,
+        "batch_dir": "/Users/galois/Coding/DeepSeekv3.2_cases/decode_bs64"
+      }
+    }
+  }
+}

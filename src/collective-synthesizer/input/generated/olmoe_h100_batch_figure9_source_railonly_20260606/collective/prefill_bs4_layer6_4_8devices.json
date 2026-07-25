@@ -1,0 +1,5 @@
+{
+  "collective": "alltoallv",
+  "v_datasize": "input/generated/olmoe_h100_batch_figure9_source_railonly_20260606/csv/8devices/prefill_bs4_layer6_4_8devices.csv",
+  "chunkfactor": 1
+}

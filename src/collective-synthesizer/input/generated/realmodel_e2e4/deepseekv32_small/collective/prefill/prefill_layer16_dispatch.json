@@ -1,0 +1,6 @@
+{
+  "collective": "alltoallv",
+  "v_datasize": "input/generated/realmodel_e2e4/deepseekv32_small/csv/prefill/prefill_layer16_dispatch.csv",
+  "chunkfactor": 1,
+  "block_bytes": 8192
+}

@@ -1,0 +1,55 @@
+{
+  "topologies": [
+    {
+      "topology_key": "torus_tpuv4_4x4x4",
+      "topology_type": "torus",
+      "shape": [
+        4,
+        4,
+        4
+      ],
+      "target_devices": 64,
+      "topology_json": "evaluation_assets/topologies/synthetic/torus_tpuv4_4x4x4.json"
+    },
+    {
+      "topology_key": "mesh_nebula_8x4",
+      "topology_type": "mesh",
+      "shape": [
+        8,
+        4
+      ],
+      "target_devices": 32,
+      "topology_json": "evaluation_assets/topologies/synthetic/mesh_nebula_8x4.json"
+    },
+    {
+      "topology_key": "cm384_16x2_eval",
+      "topology_type": "cm384",
+      "shape": [
+        16,
+        2
+      ],
+      "target_devices": 32,
+      "topology_json": "evaluation_assets/topologies/synthetic/cm384_16x2_eval.json"
+    },
+    {
+      "topology_key": "rail_optimized_8x4_eval",
+      "topology_type": "rail-optimized",
+      "shape": [
+        8,
+        4
+      ],
+      "target_devices": 32,
+      "topology_json": "evaluation_assets/topologies/synthetic/rail_optimized_8x4_eval.json"
+    },
+    {
+      "topology_key": "fattree_8x4_eval",
+      "topology_type": "fat-tree",
+      "shape": [
+        8,
+        4
+      ],
+      "target_devices": 32,
+      "topology_json": "evaluation_assets/topologies/synthetic/fattree_8x4_eval.json"
+    }
+  ]
+}

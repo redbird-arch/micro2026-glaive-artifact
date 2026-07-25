@@ -1,0 +1,5 @@
+{
+    "collective": "alltoall",
+    "datasize": 1048576,
+    "chunkfactor": 128
+}

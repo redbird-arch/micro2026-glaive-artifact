@@ -1,0 +1,5 @@
+{
+    "collective": "allgather",
+    "datasize": 1048576,
+    "chunkfactor": 256
+}

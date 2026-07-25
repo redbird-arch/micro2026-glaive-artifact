@@ -1,0 +1,6 @@
+{
+  "collective": "alltoallv",
+  "v_datasize": "input/generated/realmodel_e2e4/deepseekv32_large/csv/decode/decode_layer51_dispatch.csv",
+  "chunkfactor": 1,
+  "block_bytes": 8192
+}

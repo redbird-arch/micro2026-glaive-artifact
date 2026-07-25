@@ -1,0 +1,5 @@
+{
+  "collective": "alltoallv",
+  "v_datasize": "evaluation_assets/csv/synthetic/32devices/layer1_group2_32devices_64MB.csv",
+  "chunkfactor": 1
+}

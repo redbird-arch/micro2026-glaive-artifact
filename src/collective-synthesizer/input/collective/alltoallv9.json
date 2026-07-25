@@ -1,0 +1,5 @@
+{
+    "collective": "alltoallv",
+    "v_datasize": "input/a2a-9.csv",
+    "chunkfactor": 1
+}

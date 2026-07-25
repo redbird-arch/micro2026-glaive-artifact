@@ -1,0 +1,11 @@
+{
+    "topology": "mesh",
+    "dimension": 2,
+    "shape": [3, 3],
+    "bandwidth": [500, 500],
+    "latency": [100, 100],
+    "straggler": {
+        "[0,1]": [450, 100],
+        "[1,0]": [400, 100]
+    }
+}

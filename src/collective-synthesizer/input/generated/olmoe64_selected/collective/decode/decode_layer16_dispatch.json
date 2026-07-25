@@ -1,0 +1,5 @@
+{
+    "collective": "alltoallv",
+    "v_datasize": "input/raw_data/olmoe_inf_selected/decode_bs4096/Decode_BS4096_Layer16_0.csv",
+    "chunkfactor": 1
+}

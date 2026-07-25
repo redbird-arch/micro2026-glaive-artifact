@@ -1,0 +1,5 @@
+{
+    "collective": "alltoallv",
+    "v_datasize": "input/generated/olmoe64_selected/csv/decode/decode_layer1_combine.csv",
+    "chunkfactor": 1
+}

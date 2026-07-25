@@ -1,0 +1,6 @@
+{
+    "collective": "broadcast",
+    "datasize": 1048576,
+    "chunkfactor": 4,
+    "root": 0
+}

@@ -1,0 +1,10 @@
+{
+  "topology": "fat-tree",
+  "dimension": 2,
+  "shape": [8, 2],
+  "switch-dimension": 2,
+  "switch-shape": [6, 1],
+  "link-count": [18, 1],
+  "bandwidth": [300, 25],
+  "latency": [500, 500]
+}

@@ -1,0 +1,8 @@
+{
+  "collective": "alltoallv",
+  "synthetic_v_datasize": {
+    "pattern": "far-end",
+    "bytes-per-flow": 1048576,
+    "fanout": 1
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "collective": "alltoallv",
+  "block_bytes": 65536,
+  "synthetic_v_datasize": {
+    "pattern": "tiled-csv",
+    "base_csv": "input/Decode_BS64_Layer8_56.csv"
+  }
+}

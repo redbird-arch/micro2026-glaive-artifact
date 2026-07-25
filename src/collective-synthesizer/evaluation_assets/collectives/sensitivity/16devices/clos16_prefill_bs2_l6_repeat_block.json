@@ -1,0 +1,6 @@
+{
+  "collective": "alltoallv",
+  "v_datasize": "input/generated/olmoe_h100_batch_refresh_20260402/csv/16devices/prefill_bs2_layer6_9_16devices.csv",
+  "block_bytes": 8192,
+  "chunkfactor": 1
+}

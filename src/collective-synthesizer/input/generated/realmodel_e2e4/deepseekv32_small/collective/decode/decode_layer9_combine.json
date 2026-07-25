@@ -1,0 +1,6 @@
+{
+  "collective": "alltoallv",
+  "v_datasize": "input/generated/realmodel_e2e4/deepseekv32_small/csv/decode/decode_layer9_combine.csv",
+  "chunkfactor": 1,
+  "block_bytes": 8192
+}

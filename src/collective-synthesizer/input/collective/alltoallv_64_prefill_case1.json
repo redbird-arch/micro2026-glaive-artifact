@@ -1,0 +1,5 @@
+{
+    "collective": "alltoallv",
+    "v_datasize": "input/Prefill_Group0_Layer8.csv",
+    "chunkfactor": 1
+}

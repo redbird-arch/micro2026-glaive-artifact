@@ -1,0 +1,7 @@
+{
+    "topology": "mesh",
+    "dimension": 1,
+    "shape": [4],
+    "bandwidth": [500],
+    "latency": [100]
+}

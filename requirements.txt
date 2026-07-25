@@ -1,0 +1,5 @@
+cmake==3.27.9
+matplotlib==3.7.0
+numpy==1.23.5
+pandas==1.5.3
+pillow==9.5.0

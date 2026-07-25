@@ -1,0 +1,16 @@
+{
+  "topology": "fullmesh",
+  "dimension": 2,
+  "shape": [
+    8,
+    1024
+  ],
+  "bandwidth": [
+    300,
+    300
+  ],
+  "latency": [
+    500,
+    500
+  ]
+}

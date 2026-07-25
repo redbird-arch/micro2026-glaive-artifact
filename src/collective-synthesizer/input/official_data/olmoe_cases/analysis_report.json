@@ -1,0 +1,166 @@
+{
+  "input_file": "/Users/galois/Downloads/olmoe_dpep64_globalbs64.txt",
+  "output_dir": "/Users/galois/Coding/olmoe_cases",
+  "trace_summary": {
+    "data_lines": 78272,
+    "blank_lines": 23,
+    "nonempty_nondata_lines": 6,
+    "shape_counts": {
+      "64x64": 78272
+    },
+    "prefill_lines": 336,
+    "decode_lines": 77936,
+    "prefill_groups": 21,
+    "decode_groups": 4871,
+    "prefill_run_lengths": [
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16
+    ],
+    "rows": 64,
+    "cols": 64
+  },
+  "input_relationship": {
+    "truncated_path": "/Users/galois/Downloads/olmoe_dpep64_globalbs64_v1.txt",
+    "exists": true,
+    "is_prefix_of_main": true,
+    "main_size_bytes": 974911923,
+    "truncated_size_bytes": 924523619
+  },
+  "old_logic_check": {
+    "prefill_old_bs1024_matches_long_file_only": true,
+    "decode_old_bs4096_matches_long_file_only": false,
+    "decode_issue": "The old decode regeneration used both the truncated file and the complete file, which duplicates the shared prefix.",
+    "prefill_issue": "The raw prefill matrices are already 64x64 BS=1 samples, so naming them as BS64/128/... is semantically misleading."
+  },
+  "batches": {
+    "prefill": {
+      "1": {
+        "full_batches": 21,
+        "partial_actual_groups": [],
+        "files_written": 336,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/prefill_bs1"
+      },
+      "2": {
+        "full_batches": 10,
+        "partial_actual_groups": [],
+        "files_written": 160,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/prefill_bs2"
+      },
+      "4": {
+        "full_batches": 5,
+        "partial_actual_groups": [],
+        "files_written": 80,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/prefill_bs4"
+      },
+      "8": {
+        "full_batches": 2,
+        "partial_actual_groups": [],
+        "files_written": 32,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/prefill_bs8"
+      },
+      "16": {
+        "full_batches": 1,
+        "partial_actual_groups": [],
+        "files_written": 16,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/prefill_bs16"
+      },
+      "32": {
+        "full_batches": 0,
+        "partial_actual_groups": [
+          21
+        ],
+        "files_written": 16,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/prefill_bs32"
+      }
+    },
+    "decode": {
+      "8": {
+        "full_batches": 608,
+        "partial_actual_groups": [],
+        "files_written": 9728,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs8"
+      },
+      "16": {
+        "full_batches": 304,
+        "partial_actual_groups": [],
+        "files_written": 4864,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs16"
+      },
+      "32": {
+        "full_batches": 152,
+        "partial_actual_groups": [],
+        "files_written": 2432,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs32"
+      },
+      "64": {
+        "full_batches": 76,
+        "partial_actual_groups": [],
+        "files_written": 1216,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs64"
+      },
+      "128": {
+        "full_batches": 38,
+        "partial_actual_groups": [],
+        "files_written": 608,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs128"
+      },
+      "256": {
+        "full_batches": 19,
+        "partial_actual_groups": [],
+        "files_written": 304,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs256"
+      },
+      "512": {
+        "full_batches": 9,
+        "partial_actual_groups": [],
+        "files_written": 144,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs512"
+      },
+      "1024": {
+        "full_batches": 4,
+        "partial_actual_groups": [],
+        "files_written": 64,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs1024"
+      },
+      "2048": {
+        "full_batches": 2,
+        "partial_actual_groups": [],
+        "files_written": 32,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs2048"
+      },
+      "4096": {
+        "full_batches": 1,
+        "partial_actual_groups": [],
+        "files_written": 16,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs4096"
+      },
+      "8192": {
+        "full_batches": 0,
+        "partial_actual_groups": [
+          4871
+        ],
+        "files_written": 16,
+        "batch_dir": "/Users/galois/Coding/olmoe_cases/decode_bs8192"
+      }
+    }
+  }
+}

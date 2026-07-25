@@ -1,0 +1,11 @@
+{
+    "topology": "cm384",
+    "dimension": 2,
+    "shape": [16, 2],
+    "switch-shape": [1, 1],
+    "link-count": [1, 1],
+    "direct-bandwidth": 270,
+    "direct-latency": 500,
+    "bandwidth": [196, 196],
+    "latency": [500, 500]
+}

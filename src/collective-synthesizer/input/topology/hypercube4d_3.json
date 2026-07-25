@@ -1,0 +1,6 @@
+{
+    "topology": "hypercube",
+    "dimension": 4,
+    "latency": [5, 5, 5, 5],
+    "bandwidth": [2500, 2500, 2500, 2500]
+  }

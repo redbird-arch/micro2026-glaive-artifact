@@ -1,0 +1,5 @@
+{
+    "collective": "alltoallv",
+    "v_datasize": "input/Alltoall_BS512_32devices.csv",
+    "chunkfactor": 1
+}

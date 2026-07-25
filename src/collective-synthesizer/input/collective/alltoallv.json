@@ -1,0 +1,5 @@
+{
+    "collective": "alltoallv",
+    "v_datasize": "/data/cchen/Collective-Synthesizer/OLMoE_Inference/Decode_BS16_Layer1_0.csv",
+    "chunkfactor": 1
+}

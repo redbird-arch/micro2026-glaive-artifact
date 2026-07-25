@@ -1,0 +1,5 @@
+{
+    "collective": "alltoallv",
+    "v_datasize": "input/Original_Decode_BS16_Layer6_173.csv",
+    "chunkfactor": 1
+}

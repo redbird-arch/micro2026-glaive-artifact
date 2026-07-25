@@ -1,0 +1,19 @@
+{
+  "topology": "torus",
+  "dimension": 3,
+  "shape": [
+    6,
+    6,
+    6
+  ],
+  "bandwidth": [
+    56,
+    56,
+    56
+  ],
+  "latency": [
+    500,
+    500,
+    500
+  ]
+}

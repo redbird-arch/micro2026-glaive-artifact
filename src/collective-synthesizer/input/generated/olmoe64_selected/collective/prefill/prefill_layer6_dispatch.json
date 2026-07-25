@@ -1,0 +1,5 @@
+{
+    "collective": "alltoallv",
+    "v_datasize": "input/raw_data/olmoe_inf_selected/prefill_bs1024/Prefill_BS1024_Layer6_0.csv",
+    "chunkfactor": 1
+}

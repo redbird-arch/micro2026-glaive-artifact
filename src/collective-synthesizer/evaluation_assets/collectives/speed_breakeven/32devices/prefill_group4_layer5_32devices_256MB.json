@@ -1,0 +1,6 @@
+{
+  "collective": "alltoallv",
+  "block_bytes": 4096,
+  "v_datasize": "evaluation_assets/csv/speed_breakeven/32devices/prefill_group4_layer5_32devices_256MB.csv",
+  "chunkfactor": 1
+}\n

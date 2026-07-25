@@ -1,0 +1,10 @@
+{
+    "topology": "rail-optimized",
+    "dimension": 2,
+    "shape": [8, 8],
+    "switch-dimension": 3,
+    "switch-shape": [6, 8, 1],
+    "link-count": [12, 1, 8],
+    "bandwidth": [25, 25, 25],
+    "latency": [500, 500, 500]
+}

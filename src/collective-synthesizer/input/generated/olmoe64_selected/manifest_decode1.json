@@ -1,0 +1,28 @@
+{
+  "topologies": {
+    "tpuv7_torus_8x8": "input/topology/tpuv7_8x8_torus_64.json",
+    "h100_hgx_8node_8gpu_fattree": "input/topology/h100_hgx_8node_8gpu_fattree_64.json"
+  },
+  "cases": [
+    {
+      "phase": "decode",
+      "layer": 1,
+      "nominal_batch_size": 4096,
+      "local_batch_size": 64,
+      "source_csv": "input/raw_data/olmoe_inf_selected/decode_bs4096/Decode_BS4096_Layer1_0.csv",
+      "dispatch_collective": "input/generated/olmoe64_selected/collective/decode/decode_layer1_dispatch.json",
+      "combine_collective": "input/generated/olmoe64_selected/collective/decode/decode_layer1_combine.json",
+      "dispatch_csv": "input/raw_data/olmoe_inf_selected/decode_bs4096/Decode_BS4096_Layer1_0.csv",
+      "combine_csv": "input/generated/olmoe64_selected/csv/decode/decode_layer1_combine.csv",
+      "stats": {
+        "rows": 64,
+        "avg_row_blocks": 504.140625,
+        "row_blocks_min": 472,
+        "row_blocks_max": 512,
+        "total_blocks": 32265,
+        "avg_tokens_per_rank": 63.017578125,
+        "avg_sequence_length": 0.984649658203125
+      }
+    }
+  ]
+}
