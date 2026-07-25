@@ -11,7 +11,6 @@ QueueLevels::QueueLevels(
     int offset,
     AstraNetworkAPI::BackendType backend) {
   int start = offset;
-  // levels.resize(total_levels);
   for (int i = 0; i < total_levels; i++) {
     QueueLevelHandler tmp(i, start, start + queues_per_level - 1, backend);
     levels.push_back(tmp);
@@ -23,7 +22,6 @@ QueueLevels::QueueLevels(
     int offset,
     AstraNetworkAPI::BackendType backend) {
   int start = offset;
-  // levels.resize(total_levels);
   int l = 0;
   for (auto& i : lv) {
     QueueLevelHandler tmp(l++, start, start + i - 1, backend);

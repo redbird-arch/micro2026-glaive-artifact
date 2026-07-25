@@ -72,8 +72,6 @@ Workload::Workload(
     if (stat_row == 0) {
       initialize_stat_files();
     }
-    // detailed->write_cell(0,0,"23");
-    // detailed->write_cell(3,4,"46");
   }
 }
 void Workload::initialize_stat_files() {
@@ -156,8 +154,6 @@ void Workload::report() {
   }
 }
 void Workload::check_for_sim_end() {
-  // std::cout << "Check(): stream—finished = " << generator->streams_finished
-  // << ", stream—injected = " << generator->streams_injected << std::endl; // Debug: debug print
   if (pass_counter == TOTAL_PASS) {
     current_state = LoopState::Wait_For_Sim_Finish;
     if (generator->streams_finished != generator->streams_injected &&
@@ -165,15 +161,12 @@ void Workload::check_for_sim_end() {
       generator->register_for_finished_stream(this);
       registered_for_finished_streams = true;
       layers[0]->is_weight_grad_comm_finished_blocking();
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     if (generator->streams_finished == generator->streams_injected) {
       if (generator->id == 0) {
         report();
       }
-      // std::cout<<"workload of node: "<<generator->id<<" has been
-      // finished"<<std::endl;
       generator->workload_finished();
       return;
     }
@@ -199,9 +192,6 @@ void Workload::iterate_data_parallel() {
   if (current_state == LoopState::Forward_Pass) {
     // wait for comm or wait for comp
     if (!layers[index]->is_weight_grad_comm_finished_blocking()) {
-      // layers[index]->increment_waiting_for_wg();
-      // waiting_for_comm++;
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     if (delay_loaded == false) {
@@ -213,16 +203,12 @@ void Workload::iterate_data_parallel() {
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
       return;
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -256,9 +242,6 @@ void Workload::iterate_data_parallel() {
       }
       pass_counter++;
       current_state = LoopState::Forward_Pass;
-      // if(pass_counter == TOTAL_PASS){
-      //  layers[0]->is_weight_grad_comm_finished_blocking();
-      //}
     } else {
       current_state = LoopState::Input_Gradient;
     }
@@ -295,15 +278,11 @@ void Workload::iterate_hybrid_parallel_customized() {
     if (delay_loaded == false) {
       counter = layers[index]->get_fwd_pass_compute();
       if (generator->id == 0) {
-        // std::cout<<"layer: "<<index<<" delay in cycles:
-        // "<<counter<<std::endl;
       }
       delay_loaded = true;
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
@@ -316,8 +295,6 @@ void Workload::iterate_hybrid_parallel_customized() {
       return;
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -344,8 +321,6 @@ void Workload::iterate_hybrid_parallel_customized() {
           SchedulingPolicy::FIFO, CollectiveBarrier::Non_Blocking);
     }
     if (!layers[index]->is_input_grad_comm_finished_blocking()) {
-      // layers[index]->increment_waiting_for_ig();
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     collective_issued = false;
@@ -399,15 +374,11 @@ void Workload::iterate_hybrid_parallel_data_model() {
     if (delay_loaded == false) {
       counter = layers[index]->get_fwd_pass_compute();
       if (generator->id == 0) {
-        // std::cout<<"layer: "<<index<<" delay in cycles:
-        // "<<counter<<std::endl;
       }
       delay_loaded = true;
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
@@ -420,8 +391,6 @@ void Workload::iterate_hybrid_parallel_data_model() {
       return;
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -448,8 +417,6 @@ void Workload::iterate_hybrid_parallel_data_model() {
           SchedulingPolicy::FIFO, CollectiveBarrier::Non_Blocking);
     }
     if (!layers[index]->is_input_grad_comm_finished_blocking()) {
-      // layers[index]->increment_waiting_for_ig();
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     collective_issued = false;
@@ -503,15 +470,11 @@ void Workload::iterate_hybrid_parallel_model_data() {
     if (delay_loaded == false) {
       counter = layers[index]->get_fwd_pass_compute();
       if (generator->id == 0) {
-        // std::cout<<"layer: "<<index<<" delay in cycles:
-        // "<<counter<<std::endl;
       }
       delay_loaded = true;
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
@@ -524,8 +487,6 @@ void Workload::iterate_hybrid_parallel_model_data() {
       return;
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -552,8 +513,6 @@ void Workload::iterate_hybrid_parallel_model_data() {
           SchedulingPolicy::FIFO, CollectiveBarrier::Non_Blocking);
     }
     if (!layers[index]->is_input_grad_comm_finished_blocking()) {
-      // layers[index]->increment_waiting_for_ig();
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     collective_issued = false;
@@ -607,15 +566,11 @@ void Workload::iterate_distributed_inference() {
     if (delay_loaded == false) {
       counter = layers[index]->get_fwd_pass_compute();
       if (generator->id == 0) {
-        // std::cout<<"layer: "<<index<<" delay in cycles:
-        // "<<counter<<std::endl;
       }
       delay_loaded = true;
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
@@ -637,8 +592,6 @@ void Workload::iterate_distributed_inference() {
       return;
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -677,8 +630,6 @@ void Workload::iterate_model_parallel() {
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
@@ -692,8 +643,6 @@ void Workload::iterate_model_parallel() {
       return;
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -718,8 +667,6 @@ void Workload::iterate_model_parallel() {
       return;
     }
     if (!layers[index]->is_input_grad_comm_finished_blocking()) {
-      // layers[index]->increment_waiting_for_ig();
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     collective_issued = false;
@@ -786,8 +733,6 @@ void Workload::iterate_hybrid_parallel_Transformer() {
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
@@ -803,8 +748,6 @@ void Workload::iterate_hybrid_parallel_Transformer() {
       return;
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -837,8 +780,6 @@ void Workload::iterate_hybrid_parallel_Transformer() {
           SchedulingPolicy::FIFO, CollectiveBarrier::Non_Blocking);
     }
     if (!layers[index]->is_input_grad_comm_finished_blocking()) {
-      // layers[index]->increment_waiting_for_ig();
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     collective_issued = false;
@@ -855,9 +796,6 @@ void Workload::iterate_hybrid_parallel_Transformer() {
       }
       pass_counter++;
       current_state = LoopState::Forward_Pass;
-      // if(pass_counter == TOTAL_PASS){
-      //    layers[0]->is_weight_grad_comm_finished_blocking();
-      //}
     } else {
       current_state = LoopState::Input_Gradient;
     }
@@ -903,15 +841,11 @@ void Workload::iterate_hybrid_parallel_Transformer_fwd_in_bckwd() {
     if (delay_loaded == false) {
       counter = layers[index]->get_fwd_pass_compute();
       if (generator->id == 0) {
-        // std::cout<<"layer: "<<index<<" delay in cycles:
-        // "<<counter<<std::endl;
       }
       delay_loaded = true;
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
@@ -924,8 +858,6 @@ void Workload::iterate_hybrid_parallel_Transformer_fwd_in_bckwd() {
       return;
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -952,8 +884,6 @@ void Workload::iterate_hybrid_parallel_Transformer_fwd_in_bckwd() {
           SchedulingPolicy::FIFO, CollectiveBarrier::Non_Blocking);
     }
     if (!layers[index]->is_input_grad_comm_finished_blocking()) {
-      // layers[index]->increment_waiting_for_ig();
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     collective_issued = false;
@@ -969,9 +899,6 @@ void Workload::iterate_hybrid_parallel_Transformer_fwd_in_bckwd() {
       }
       pass_counter++;
       current_state = LoopState::Forward_Pass;
-      // if(pass_counter == TOTAL_PASS){
-      //    layers[0]->is_weight_grad_comm_finished_blocking();
-      //}
     } else {
       current_state = LoopState::Input_Gradient;
     }
@@ -1021,15 +948,11 @@ void Workload::iterate_hybrid_parallel_Transformer_fwd_in_bckwd() {
     if (delay_loaded == false) {
       counter = layers[index]->get_fwd_pass_compute();
       if (generator->id == 0) {
-        // std::cout<<"layer: "<<index<<" delay in cycles:
-        // "<<counter<<std::endl;
       }
       delay_loaded = true;
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
@@ -1042,8 +965,6 @@ void Workload::iterate_hybrid_parallel_Transformer_fwd_in_bckwd() {
       return;
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -1061,14 +982,6 @@ void Workload::iterate_hybrid_parallel_DLRM() {
   check_for_sim_end();
   if (current_state == LoopState::Forward_Pass) {
     if (!layers[index]->is_weight_grad_comm_finished_blocking()) {
-      // layers[index]->increment_waiting_for_wg();
-      // waiting_for_comm++;
-      // if (pass_counter == 1 && generator->id == 0 &&
-      // generator->streams_finished == 106) {
-      // std::cout<<"still waiting for copleteness of layer:
-      // "<<layers[index]->id<<std::endl;
-      //}
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     if (delay_loaded == false) {
@@ -1080,8 +993,6 @@ void Workload::iterate_hybrid_parallel_DLRM() {
     }
     if (counter > 0) {
       if (generator->id == 0) {
-        // std::cout<<"i have been called in cycles:
-        // "<<Sys::boostedTick()<<std::endl;
       }
       generator->try_register_event(
           this, EventType::Workload_Wait, NULL, counter);
@@ -1098,14 +1009,10 @@ void Workload::iterate_hybrid_parallel_DLRM() {
     } else if (index == DLRM_LAST_BOTTOM_LAYER) {
       // wait util the All-to-All finishes in DLRM_LAST_BOTTOM_LAYER
       if (!layers[0]->is_fwd_pass_comm_finished_blocking()) {
-        // layers[0]->increment_waiting_for_fwd();
-        // generator->register_event(this, EventType::General, NULL, 1);
         return;
       }
     }
     if (generator->id == 0) {
-      // std::cout<<"moving to the fwp layer:"<<index<<" ,at time:
-      // "<<Sys::boostedTick()<<std::endl;
     }
     index++;
     delay_loaded = false;
@@ -1149,8 +1056,6 @@ void Workload::iterate_hybrid_parallel_DLRM() {
     }
     if (parallelismPolicy == ParallelismPolicy::DLRM &&
         !layers[index]->is_input_grad_comm_finished_blocking()) {
-      // layers[index]->increment_waiting_for_ig();
-      // generator->register_event(this, EventType::General, NULL, 1);
       return;
     }
     if (index == 0) {
@@ -1160,9 +1065,6 @@ void Workload::iterate_hybrid_parallel_DLRM() {
       }
       pass_counter++;
       current_state = LoopState::Forward_Pass;
-      // if(pass_counter == TOTAL_PASS){
-      //  layers[0]->is_weight_grad_comm_finished_blocking();
-      //}
     } else {
       current_state = LoopState::Input_Gradient;
     }
@@ -1368,7 +1270,6 @@ bool Workload::initialize_workload(std::string name) {
       std::cout << tmp << " is: " << model_parallel_npu_group << std::endl;
     }
     if (parallelismPolicy == ParallelismPolicy::TransformerFwdInBckwd) {
-      // here read the checkpoint related info
       inFile >> tmp;
       inFile >> i;
       if (generator->id == 0) {

@@ -24,7 +24,6 @@ BinaryTree::BinaryTree(
   tree = new Node(-1, nullptr, nullptr, nullptr);
   int depth = 1;
   int tmp = total_tree_nodes;
-  // node_list.resize(total_nodes,nullptr);
   while (tmp > 1) {
     depth++;
     tmp /= 2;
@@ -35,9 +34,6 @@ BinaryTree::BinaryTree(
     tree->left_child = initialize_tree(depth - 1, tree);
   }
   build_tree(tree);
-  // std::cout<<"##############################################"<<std::endl;
-  // print(tree);
-  // std::cout<<"##############################################"<<std::endl;
 }
 Node* BinaryTree::initialize_tree(int depth, Node* parent) {
   Node* tmp = new Node(-1, parent, nullptr, nullptr);

@@ -42,7 +42,6 @@ void UsageTracker::report(CSVWriter* writer, int offset) {
     writer->write_cell(row, col, std::to_string(a.start));
     writer->write_cell(row++, col + 1, std::to_string(a.level));
   }
-  // writer->close_file_cont();
   return;
 }
 std::list<std::pair<uint64_t, double>> UsageTracker::report_percentage(

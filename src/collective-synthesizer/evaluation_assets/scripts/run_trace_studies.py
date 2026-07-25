@@ -21,18 +21,18 @@ import numpy as np
 
 TOKEN_BYTES = 4096
 TOP_K_DEFAULT = 8
-REPO_ROOT = Path(__file__).resolve().parents[3]
-OUT_ROOT = Path(os.environ.get("GLAIVE_SIM_EXP_OUT_ROOT", REPO_ROOT / "rebuttal" / "simulation_exp")).resolve()
+REPO_ROOT = Path(__file__).resolve().parents[2]
+OUT_ROOT = Path(os.environ.get("GLAIVE_TRACE_STUDIES_OUT_ROOT", REPO_ROOT / "evaluation_assets")).resolve()
 RESULTS_DIR = OUT_ROOT / "results"
 GENERATED_DIR = OUT_ROOT / "generated"
 LOGS_DIR = OUT_ROOT / "logs"
 PLOTS_DIR = OUT_ROOT / "plots"
-PLOT_SCRIPT_DIR = REPO_ROOT / "rebuttal" / "simulation_exp" / "plots"
+PLOT_SCRIPT_DIR = Path(__file__).resolve().parent
 
 METHODS_32 = ("glaive", "biring", "mpibaseline")
 METHODS_64 = ("glaive", "halfringdr", "mpibaseline")
 METHOD_ARGS = {
-    "glaive": ["--solver3", "mode=clean", "--print-schedule"],
+    "glaive": ["--solver", "mode=clean", "--print-schedule"],
     "biring": ["--baseline-method", "biring"],
     "halfringdr": ["--baseline-method", "halfringdr"],
     "mpibaseline": ["--baseline-method", "mpibaseline"],
@@ -1215,7 +1215,7 @@ def build_topology_graph_from_config(config: dict[str, object]) -> tuple[list[st
         # Glaive's direct mesh solver uses row-major coordinates, while the
         # baseline Topology::Mesh object historically expands strides from the
         # first dimension.  The analysis graph uses their union so fabric-level
-        # denominators stay fixed across methods in this rebuttal suite.
+        # Denominators stay fixed across methods in this controlled suite.
         strides = []
         for dim in range(len(shape)):
             stride = 1
@@ -1842,14 +1842,6 @@ def analyze_existing_network_logs(_: argparse.Namespace) -> None:
     log_roots = [
         ("evaluation_assets_link", REPO_ROOT / "evaluation_assets" / "raw_logs" / "link"),
         ("evaluation_assets_synthetic", REPO_ROOT / "evaluation_assets" / "raw_logs" / "synthetic"),
-        (
-            "evaluation_assets_link",
-            REPO_ROOT / "rebuttal" / "eval_style_torus_halfringdr_refresh" / "raw_logs" / "link",
-        ),
-        (
-            "evaluation_assets_synthetic",
-            REPO_ROOT / "rebuttal" / "eval_style_torus_halfringdr_refresh" / "raw_logs" / "synthetic",
-        ),
     ]
     for suite, root in log_roots:
         if not root.exists():
@@ -1980,7 +1972,7 @@ def run_one_task(case: dict[str, str], method: str, log_path: Path, force: bool)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     if not force and log_path.exists() and log_path.stat().st_size > 0:
         text = log_path.read_text(errors="replace")
-        if "[TACOS Solver3] Done!" in text or "[TACOS Baseline] Done!" in text:
+        if "[TACOS Solver] Done!" in text or "[TACOS Baseline] Done!" in text:
             return "skip"
     command = runtime_command() + [
         str(REPO_ROOT / case["topology_json"]),
@@ -2518,381 +2510,9 @@ def derive_summaries(_: argparse.Namespace) -> None:
     )
 
 
-def plot_results(_: argparse.Namespace) -> None:
-    ensure_dirs()
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from matplotlib.lines import Line2D
-
-    plt.rcParams.update(
-        {
-            "font.size": 11,
-            "axes.grid": True,
-            "grid.alpha": 0.28,
-            "grid.linewidth": 0.7,
-            "axes.spines.top": False,
-            "axes.spines.right": False,
-            "figure.autolayout": True,
-        }
-    )
-
-    method_colors = {
-        "glaive": "#2a9d8f",
-        "biring": "#7b2cbf",
-        "halfringdr": "#7b2cbf",
-        "mpibaseline": "#e76f51",
-    }
-    variant_colors = {
-        "real": "#111827",
-        "balanced": "#00BFC4",
-        "blend_0.25": "#009E73",
-        "blend_0.50": "#CC79A7",
-        "blend_0.75": "#E69F00",
-        "eplb_x2": "#0072B2",
-        "worst_top8": "#D55E00",
-    }
-    topology_markers = {
-        "mesh_nebula_8x4": "o",
-        "clos_8x4": "s",
-        "cm384_16x2": "^",
-        "rail_optimized_8x4": "P",
-        "torus_tpuv4_4x4x4": "D",
-    }
-    topology_jitter = {
-        "mesh_nebula_8x4": -0.012,
-        "clos_8x4": -0.006,
-        "cm384_16x2": 0.0,
-        "rail_optimized_8x4": 0.012,
-        "torus_tpuv4_4x4x4": 0.006,
-    }
-
-    figures: list[dict[str, object]] = []
-
-    def save_figure(fig: object, figure_id: str, title: str, description: str, source_csvs: list[Path]) -> None:
-        pdf_path = PLOTS_DIR / f"{figure_id}.pdf"
-        fig.savefig(pdf_path, bbox_inches="tight")
-        plt.close(fig)
-        figures.append(
-            {
-                "figure_id": figure_id,
-                "title": title,
-                "description": description,
-                "pdf_path": rel(pdf_path),
-                "source_csvs": ";".join(rel(path) for path in source_csvs),
-            }
-        )
-
-    def clean_label(value: str) -> str:
-        return (
-            value.replace("deepseekv3", "DeepSeek")
-            .replace("olmoe", "OLMoE")
-            .replace("qwen", "Qwen")
-            .replace("evaluation_synthetic", "synthetic")
-            .replace("_", " ")
-        )
-
-    real_metric_path = RESULTS_DIR / "trace_metrics_real_full.csv"
-    real_rows = [
-        row
-        for row in read_csv(real_metric_path)
-        if fnum(row, "total_tokens") > 0 and row.get("source") == "official"
-    ]
-    groups: dict[tuple[str, str], list[float]] = defaultdict(list)
-    for row in real_rows:
-        groups[(row["model"], row["phase"])].append(fnum(row, "bimodal_pressure_index"))
-    ordered_groups = sorted(groups)
-    if ordered_groups:
-        data = [groups[key] for key in ordered_groups]
-        labels = [f"{clean_label(key[0])}\n{key[1]}" for key in ordered_groups]
-        fig, ax = plt.subplots(figsize=(10.8, 5.2))
-        box = ax.boxplot(data, patch_artist=True, showfliers=False, medianprops={"color": "#111111", "linewidth": 1.4})
-        for patch, key in zip(box["boxes"], ordered_groups):
-            patch.set_facecolor("#a8dadc" if key[1] == "prefill" else "#f1faee")
-            patch.set_edgecolor("#1d3557")
-        ax.set_ylabel("Bimodal Pressure Index")
-        ax.set_ylim(-0.02, 1.02)
-        ax.set_xticks(range(1, len(labels) + 1))
-        ax.set_xticklabels(labels, rotation=28, ha="right")
-        ax.set_title("BPI Distribution Across Official Nonzero MoE Alltoallv Traces")
-        for idx, values in enumerate(data, start=1):
-            ax.text(idx, 0.99, f"n={len(values)}", ha="center", va="top", fontsize=8, color="#333333")
-        save_figure(
-            fig,
-            "trace_bpi_distribution",
-            "BPI distribution of official traces",
-            "Candidate bimodal pressure index distributions for nonzero official traces, grouped by model and phase.",
-            [real_metric_path],
-        )
-
-    variant_metric_path = RESULTS_DIR / "trace_metrics_reference_variants.csv"
-    variant_rows = [row for row in read_csv(variant_metric_path) if fnum(row, "total_tokens") > 0]
-    variant_groups: dict[str, list[float]] = defaultdict(list)
-    for row in real_rows:
-        variant_groups["real"].append(fnum(row, "bimodal_pressure_index"))
-    for row in variant_rows:
-        variant_groups[row["variant"]].append(fnum(row, "bimodal_pressure_index"))
-    variant_order = ["balanced", "blend_0.75", "blend_0.50", "blend_0.25", "eplb_x2", "real", "worst_top8"]
-    variant_order = [variant for variant in variant_order if variant in variant_groups]
-    if variant_order:
-        data = [variant_groups[variant] for variant in variant_order]
-        fig, ax = plt.subplots(figsize=(10.6, 5.2))
-        box = ax.boxplot(data, patch_artist=True, showfliers=False, medianprops={"color": "#111111", "linewidth": 1.4})
-        for patch, variant in zip(box["boxes"], variant_order):
-            patch.set_facecolor(variant_colors.get(variant, "#bbbbbb"))
-            patch.set_alpha(0.82)
-            patch.set_edgecolor("#222222")
-        ax.set_ylabel("Bimodal Pressure Index")
-        ax.set_ylim(-0.02, 1.02)
-        ax.set_xticks(range(1, len(variant_order) + 1))
-        ax.set_xticklabels([variant_label(variant) for variant in variant_order], rotation=20, ha="right")
-        ax.set_title("BPI Under Real and Reference Traffic Controls")
-        save_figure(
-            fig,
-            "reference_variant_bpi_distribution",
-            "BPI distribution of reference variants",
-            "Comparison of nonzero real traces and synthetic controls with the same total traffic.",
-            [real_metric_path, variant_metric_path],
-        )
-
-    speedup_path = RESULTS_DIR / "performance_speedup_vs_best_baseline.csv"
-    speedup_rows = [row for row in read_csv(speedup_path) if row.get("speedup_vs_best_baseline", "") != ""]
-    if speedup_rows:
-        fig, ax = plt.subplots(figsize=(12.6, 6.2))
-        for variant in sorted({row["variant"] for row in speedup_rows}):
-            rows = [row for row in speedup_rows if row["variant"] == variant]
-            for topology in sorted({row["topology_key"] for row in rows}):
-                topo_rows = [row for row in rows if row["topology_key"] == topology]
-                ax.scatter(
-                    [
-                        max(
-                            0.0,
-                            min(1.0, fnum(row, "input_bimodal_pressure_index") + topology_jitter.get(topology, 0.0)),
-                        )
-                        for row in topo_rows
-                    ],
-                    [fnum(row, "speedup_vs_best_baseline") for row in topo_rows],
-                    s=46,
-                    alpha=0.82,
-                    marker=topology_markers.get(topology, "o"),
-                    color=variant_colors.get(variant, "#666666"),
-                    edgecolors="white",
-                    linewidths=0.55,
-                )
-        ax.axhline(1.0, color="#333333", linestyle="--", linewidth=1.1)
-        negative_rows = [
-            row
-            for row in speedup_rows
-            if fnum(row, "speedup_vs_best_baseline", 1.0) < 1.0
-        ]
-        if negative_rows:
-            ax.scatter(
-                [
-                    max(
-                        0.0,
-                        min(
-                            1.0,
-                            fnum(row, "input_bimodal_pressure_index")
-                            + topology_jitter.get(row.get("topology_key", ""), 0.0),
-                        ),
-                    )
-                    for row in negative_rows
-                ],
-                [fnum(row, "speedup_vs_best_baseline") for row in negative_rows],
-                s=118,
-                marker="o",
-                facecolors="none",
-                edgecolors="#B00020",
-                linewidths=1.35,
-                label="speedup < 1",
-                zorder=5,
-            )
-        ax.set_xlabel("Input Bimodal Pressure Index")
-        ax.set_ylabel("Glaive Speedup vs Best Baseline")
-        ax.set_title("Glaive Performance Across Bimodality Levels")
-        ax.set_xlim(-0.025, 0.9)
-        variant_legend = [
-            Line2D(
-                [0],
-                [0],
-                marker="o",
-                color="none",
-                    markerfacecolor=variant_colors.get(variant, "#666666"),
-                    markeredgecolor="white",
-                    markersize=7,
-                    label=variant_label(variant),
-                )
-            for variant in sorted({row["variant"] for row in speedup_rows})
-        ]
-        topology_legend = [
-            Line2D(
-                [0],
-                [0],
-                marker=topology_markers.get(topology, "o"),
-                color="#444444",
-                markerfacecolor="#444444",
-                markersize=7,
-                linestyle="none",
-                label=topology,
-            )
-            for topology in sorted({row["topology_key"] for row in speedup_rows})
-        ]
-        if negative_rows:
-            variant_legend.append(
-                Line2D(
-                    [0],
-                    [0],
-                    marker="o",
-                    color="#B00020",
-                    markerfacecolor="none",
-                    markersize=8,
-                    linestyle="none",
-                    label="speedup < 1",
-                )
-            )
-        first_legend = ax.legend(
-            handles=variant_legend,
-            ncol=1,
-            frameon=False,
-            loc="upper left",
-            bbox_to_anchor=(1.01, 1.0),
-            borderaxespad=0.0,
-        )
-        ax.add_artist(first_legend)
-        ax.legend(
-            handles=topology_legend,
-            ncol=1,
-            frameon=False,
-            loc="lower left",
-            bbox_to_anchor=(1.01, 0.0),
-            borderaxespad=0.0,
-            fontsize=8,
-        )
-        ax.text(
-            0.01,
-            0.02,
-            "Small x-jitter separates topologies with identical input BPI.",
-            transform=ax.transAxes,
-            fontsize=8,
-            color="#555555",
-        )
-        save_figure(
-            fig,
-            "speedup_vs_bpi",
-            "Speedup versus input BPI",
-            "Glaive speedup over the best non-Glaive baseline versus input BPI for each case; small horizontal jitter only separates topology points with identical BPI.",
-            [speedup_path],
-        )
-
-    speedup_variant_path = RESULTS_DIR / "performance_speedup_by_variant.csv"
-    speedup_variant = read_csv(speedup_variant_path)
-    if speedup_variant:
-        order = [row["variant"] for row in speedup_variant]
-        x = np.arange(len(order))
-        means = np.asarray([fnum(row, "speedup_vs_best_baseline_mean") for row in speedup_variant])
-        p10 = np.asarray([fnum(row, "speedup_vs_best_baseline_p10") for row in speedup_variant])
-        p90 = np.asarray([fnum(row, "speedup_vs_best_baseline_p90") for row in speedup_variant])
-        fig, ax = plt.subplots(figsize=(10.8, 5.2))
-        ax.bar(x, means, color=[variant_colors.get(variant, "#777777") for variant in order], alpha=0.88)
-        ax.errorbar(x, means, yerr=[means - p10, p90 - means], fmt="none", ecolor="#222222", capsize=4, linewidth=1.2)
-        ax.axhline(1.0, color="#333333", linestyle="--", linewidth=1.0)
-        ax.set_xticks(x)
-        ax.set_xticklabels([variant_label(variant) for variant in order], rotation=22, ha="right")
-        ax.set_ylabel("Speedup vs Best Baseline")
-        ax.set_title("Aggregate Glaive Speedup by Traffic Variant")
-        save_figure(
-            fig,
-            "speedup_by_variant",
-            "Speedup aggregated by variant",
-            "Mean, p10, and p90 speedup for real, balanced, blended, EPLB, and worst-case traffic variants.",
-            [speedup_variant_path],
-        )
-
-        fig, axes = plt.subplots(4, 1, figsize=(11.8, 10.0), sharex=True)
-        load_metrics = [
-            (
-                "fabric_active_link_fraction_delta_vs_best_baseline_mean",
-                "Active-link\nfraction delta",
-                "#1F77B4",
-            ),
-            (
-                "pred_hot_edge_actual_busy_share_delta_vs_best_baseline_mean",
-                "Hot-edge\nshare reduction",
-                "#D62728",
-            ),
-            (
-                "hot_flow_path_actual_busy_share_delta_vs_best_baseline_mean",
-                "Hot-flow-path\nshare reduction",
-                "#E69F00",
-            ),
-            (
-                "det_demand_vs_actual_busy_corr_delta_vs_best_baseline_mean",
-                "Deterministic\ncorr. reduction",
-                "#2CA02C",
-            ),
-        ]
-        for ax, (metric, ylabel, color) in zip(axes, load_metrics):
-            values = [fnum(row, metric) for row in speedup_variant]
-            ax.bar(x, values, color=color, alpha=0.84)
-            ax.axhline(0.0, color="#333333", linestyle="--", linewidth=0.9)
-            ax.set_ylabel(ylabel)
-        axes[0].set_title("Glaive Load-Balance Effects vs Best Baseline")
-        axes[-1].set_xticks(x)
-        axes[-1].set_xticklabels([variant_label(variant) for variant in order], rotation=22, ha="right")
-        save_figure(
-            fig,
-            "load_balance_by_variant",
-            "Load-balance effect aggregated by variant",
-            "Changes in fabric active-link fraction, predicted hot-link busy share, hot-flow-path busy share, and deterministic-demand correlation relative to the best non-Glaive baseline.",
-            [speedup_variant_path],
-        )
-
-    network_path = RESULTS_DIR / "network_balance_existing_link_256mb_summary.csv"
-    network_rows = read_csv(network_path)
-    if network_rows:
-        network_rows = sorted(network_rows, key=lambda row: (row["topology_key"], row["method"]))
-        x = np.arange(len(network_rows))
-        labels = [f"{row['topology_key']}\n{row['method']}" for row in network_rows]
-        colors = [method_colors.get(row["method"], "#777777") for row in network_rows]
-        fig, axes = plt.subplots(3, 1, figsize=(15.8, 10.2), sharex=True)
-        for ax, metric, ylabel in [
-            (axes[0], "used_links_mean", "Used Links"),
-            (axes[1], "link_use_count_sum_mean", "Link Busy Intervals"),
-            (axes[2], "busy_time_gini_mean", "Busy-Time Gini"),
-        ]:
-            ax.bar(x, [fnum(row, metric) for row in network_rows], color=colors, alpha=0.88)
-            ax.set_ylabel(ylabel)
-        axes[0].set_title("Existing 256MB Link-Utilization Load Balance")
-        axes[2].set_xticks(x)
-        axes[2].set_xticklabels(labels, rotation=62, ha="right", fontsize=8)
-        legend_methods = sorted({row["method"] for row in network_rows})
-        axes[0].legend(
-            [Line2D([0], [0], color=method_colors.get(method, "#777777"), lw=8) for method in legend_methods],
-            legend_methods,
-            ncol=len(legend_methods),
-            frameon=False,
-            loc="upper right",
-        )
-        save_figure(
-            fig,
-            "network_balance_256mb",
-            "Existing 256 MB network load balance",
-            "Used links, link busy intervals, and busy-time Gini from existing synthetic 256 MB link-utilization logs.",
-            [network_path],
-        )
-
-    write_csv(RESULTS_DIR / "figure_manifest.csv", figures)
-    print(json.dumps({"figures": len(figures), "manifest": rel(RESULTS_DIR / "figure_manifest.csv")}, indent=2))
-
-
 PLOT_SCRIPT_IDS = (
-    "trace_bpi_distribution",
     "reference_variant_bpi_distribution",
     "speedup_vs_bpi",
-    "speedup_by_variant",
-    "load_balance_by_variant",
-    "network_balance_256mb",
 )
 
 

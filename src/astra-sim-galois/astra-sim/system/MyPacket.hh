@@ -36,7 +36,6 @@ class MyPacket : public Callable {
   int preferred_src;
   uint64_t msg_size;
   Tick ready_time;
-  // MyPacket(int cycles_needed, FIFOMovement *fMovement, FIFO *dest);
   MyPacket(int preferred_vnet, int preferred_src, int preferred_dest);
   MyPacket(
       uint64_t msg_size,

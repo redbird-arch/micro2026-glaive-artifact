@@ -23,7 +23,6 @@ LICENSE file in the root directory of this source tree.
 namespace AstraSim {
 class CSVWriter {
  public:
-  // std::fstream inFile;
   std::fstream myFile;
   void initialize_csv(int rows, int cols);
   void finalize_csv(std::list<std::list<std::pair<uint64_t, double>>> dims);

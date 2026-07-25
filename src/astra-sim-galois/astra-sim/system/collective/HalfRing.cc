@@ -26,7 +26,6 @@ HalfRing::HalfRing(
     int failure_type,
     int non_uniform_flag) // add acceleration_nodes for getting correct node_num in failed ring 
     : Algorithm(layer_num) {
-  // std::cout<<"Ring checkmark 0"<<std::endl;
   this->comType = type;
   this->id = id;
   this->logicalTopology = ring_topology;
@@ -103,8 +102,6 @@ HalfRing::HalfRing(
     assert (link_failure_in_this_dimension == 1); // stop the program by force
   }
   
-  // Support multi-dimension accelerated stream
-  // std::cout << "Debug Tag for chunk_stage: " << chunk_stage << std::endl; // debug output
   if ((link_failure_scheduling == LinkFailureScheduling::Mate || link_failure_scheduling == LinkFailureScheduling::Mate_Enhanced) && ( (chunk_stage % 2 == 1 && failure_type != 1 && failure_type != 4) || (chunk_stage % 3 != 0 && (failure_type == 1 || failure_type == 4) ) )) {
     // odd stream is multi-dimension accelerated, then stream_count is the same with half-ring algorithm while bandwidth_scalar doubles
     if (nodes_num_of_failed_ring % 2 == 0) {
@@ -142,7 +139,6 @@ HalfRing::HalfRing(
   } 
   
   this->total_stream_count = this->stream_count; // for change from the decreasing order to increasing order (i.e. 6-1 -> 0-5)
-  // std::cout << "Hey here for Half Ring algorithm! The link_failure_in_this dimension: " << link_failure_in_this_dimension << ", total_stream_count is: " << this->stream_count << ", chunk_stage is: " << chunk_stage << ", num_dimensions is: " << num_dimensions << std::endl; // debug output
   switch (injection_policy) {
   case InjectionPolicy::Aggressive:
       this->parallel_reduce = nodes_in_ring - 1;
@@ -169,8 +165,6 @@ HalfRing::HalfRing(
       break;
     case ComType::All_Gather:
       this->final_data_size = data_size * nodes_in_ring;
-      // std::cout<<"heeeey! here! final data size: "<<this->final_data_size<<"
-      // ,nodes in ring: "<<nodes_in_ring<<std::endl;
       this->msg_size = data_size;
       break;
     case ComType::Reduce_Scatter:
@@ -180,9 +174,6 @@ HalfRing::HalfRing(
     case ComType::All_to_All:
       this->final_data_size = data_size;
       this->msg_size = data_size / nodes_in_ring;
-      // do a very careful size computation here
-      // for MATE, there are (N-1) halfring and 1 FORD ring in acceleration period
-      // std::cout << "Data Type DEBUG: " << static_cast<double>(1 / (static_cast<double>(num_dimensions - 1) + (nodes_in_ring + 1) / (4 * nodes_in_ring))) << std::endl; // debug output
       if (link_failure_scheduling == LinkFailureScheduling::Mate_Enhanced && ( (chunk_stage % 2 == 1 && failure_type != 1 && failure_type != 4) || (chunk_stage % 3 != 0 && (failure_type == 1 || failure_type == 4) ) )) { // TODO: a better implementation is to make sure every former chunk is finished and then start this multi-dimension accelerated stream
         // TODO: the time needs to be more accurate
         if (nodes_in_ring % 2 == 0) {
@@ -208,7 +199,6 @@ HalfRing::HalfRing(
           // odd
           this->msg_size = ceil((static_cast<double>(data_size) / nodes_num_of_failed_ring) * (static_cast<double>(max_physical_dim_value + 1) / (4.0 * nodes_num_of_failed_ring)));
         }
-        // std::cout << "Msg_Size for MATE_Enhanced: " << this->msg_size << std::endl; // debug output
       } else if (link_failure_scheduling == LinkFailureScheduling::Mate && ( (chunk_stage % 2 == 0 && failure_type != 1 && failure_type != 4) || (chunk_stage % 3 == 0 && (failure_type == 1 || failure_type == 4) ) )) {
         this->msg_size = data_size / max_physical_dim_value;
       } else if (link_failure_scheduling == LinkFailureScheduling::Mate_Enhanced && ( (chunk_stage % 2 == 0 && failure_type != 1 && failure_type != 4) || (chunk_stage % 3 == 0 && (failure_type == 1 || failure_type == 4) ) ) && link_failure_in_this_dimension == 0) {
@@ -219,7 +209,6 @@ HalfRing::HalfRing(
   }
   data_size = this->orig_data_size;
   this->final_data_size = data_size;
-  // std::cout << "orig_data_size = " << orig_data_size << ", data_size = " << data_size << ", msg_size = " << msg_size << ", final_data_size = " << final_data_size << ", nodes_in_ring = " << nodes_in_ring << std::endl; // debug output
   std::cout<<"halfring all-to-all is configured at node: " << id << " ,with sender:"<<current_sender<<" ,and receiver: "<<current_receiver<<" and enable status is: "<<this->enabled<<std::endl; // original debug print
 }
 
@@ -235,8 +224,6 @@ void HalfRing::run(EventType event, CallData* data) {
     total_packets_received++;
     insert_packet(nullptr);
   } else if (event == EventType::StreamInit) {
-    // parallel_reduce = 1 here
-    // std::cout << "HalfRing::run() function, parallel_reduce = " << parallel_reduce << std::endl; // debug output
     for (int i = 0; i < parallel_reduce; i++) {
       insert_packet(nullptr);
     }
@@ -286,25 +273,17 @@ void HalfRing::process_stream_count() {
       stream->state != StreamState::Dead) {
     stream->changeState(StreamState::Zombie);
     if (id == 0) {
-      // std::cout<<"stream "<<stream_num<<" changed state to
-      // zombie"<<std::endl;
     }
   }
   if (id == 0) {
-    // std::cout<<"for stream: "<<stream_num<<" ,total stream count left:
-    // "<<stream_count<<std::endl;
   }
 }
 void HalfRing::process_max_count() {
-  // it seems that it should release_packets for each max_count
-  // std::cout << "HalfRing::process_max_count() function, max_count = " << max_count << std::endl; // debug output, there will be some negative numbers
   if (remained_packets_per_max_count > 0)
     remained_packets_per_max_count--;
   if (remained_packets_per_max_count == 0) {
     max_count--;
     if (id == 0) {
-      // std::cout<<"max count is now: "<<max_count<<"stream count is:
-      // "<<stream_count<<" , free_packets: "<<free_packets<<std::endl;
     }
     release_packets();
     remained_packets_per_max_count = 1;
@@ -336,7 +315,6 @@ void HalfRing::insert_packet(Callable* sender) {
   if (!enabled) {
     return;
   }
-  // std::cout << "HalfRing::insert_packet function executed" << std::endl; // debug output
   if (zero_latency_packets == 0 && non_zero_latency_packets == 0) {
     zero_latency_packets = parallel_reduce * 1;
     non_zero_latency_packets =
@@ -379,16 +357,13 @@ void HalfRing::insert_packet(Callable* sender) {
     non_zero_latency_packets--;
     return;
   }
-  // std::cout<<"insert packet called"<<std::endl;
   Sys::sys_panic("should not inject nothing!");
   //}
 }
 bool HalfRing::ready() {
-  // std::cout<<"ready called"<<std::endl;
   if (stream->state == StreamState::Created ||
       stream->state == StreamState::Ready) {
     stream->changeState(StreamState::Executing);
-    // init(); //should be replaced
   }
   if (!enabled || packets.size() == 0 || stream_count == 0 ||
       free_packets == 0) {
@@ -403,14 +378,11 @@ bool HalfRing::ready() {
   snd_req.vnet = this->stream->current_queue_id;
   snd_req.layerNum = layer_num;
 
-  // 
-  // std::cout << "Num_Dimensions = " << num_dimensions << std::endl; // debug output
   if (this->local_failure_type == 1 || this->local_failure_type == 4) {
     this->local_chunk_stage = (3 * num_dimensions) - stream->phases_to_go.size() - 1;
   } else {
     this->local_chunk_stage = (2 * num_dimensions) - stream->phases_to_go.size() - 1;
   }
-  // std::cout << "HalfRing::ready(), stream_count = " << this->stream_count << ", local_chunk_stage = " << this->local_chunk_stage << ", num_dimensions = " << num_dimensions << std::endl; // debug output
   stream->owner->stream_num_ID = stream->stream_num;
   stream->owner->stream_count_ID = this->total_stream_count - this->stream_count;
   stream->owner->chunk_stage = this->local_chunk_stage;
@@ -424,7 +396,6 @@ bool HalfRing::ready() {
     &snd_req,
     &Sys::handleEvent,
     nullptr); // stream_num+(packet.preferred_dest*50)  
-  // std::cout << "Ring algorithm is called" << std::endl; // Debug
   sim_request rcv_req;
   rcv_req.vnet = this->stream->current_queue_id;
   rcv_req.layerNum = layer_num;
@@ -482,8 +453,6 @@ void HalfRing::exit() {
   }
   stream->declare_ready();
   stream->owner->proceed_to_next_vnet_baseline((StreamBaseline*)stream);
-  // delete this;
-  // std::cout << "HalfRing::Exit function2, steps_finished = " << stream->steps_finished << std::endl; // debug output
   return;
 }
 
@@ -512,7 +481,6 @@ uint64_t HalfRing::GetMoEDistributionValue(const std::string& filepath, int line
           while (std::getline(ss, number_str, ',')) {
               if (current_col == col_idx) {
                   try {
-                      // std::cout << "GetMoEDistributionValue get number = " << std::stoull(number_str) << std::endl; // print
                       return std::stoull(number_str);  
                   } catch (const std::exception& e) {
                       std::cerr << "Failed to parse number: " << number_str << " at (" << line_idx << "," << col_idx << "): " << e.what() << std::endl;
@@ -560,7 +528,6 @@ uint64_t HalfRing::Get_Recv_Size(int preferred_src) {
       // odd
       new_msg_size = ceil((static_cast<double>(src_data_size) / local_nodes_num_of_failed_ring) * (static_cast<double>(max_physical_dim_value + 1) / (4.0 * local_nodes_num_of_failed_ring)));
     }
-    // std::cout << "Msg_Size for MATE_Enhanced: " << this->msg_size << std::endl; // debug output
   } else if (local_link_failure_scheduling == LinkFailureScheduling::Mate && ( (local_chunk_stage % 2 == 0 && local_failure_type != 1 && local_failure_type != 4) || (local_chunk_stage % 3 == 0 && (local_failure_type == 1 || local_failure_type == 4) ) )) {
     new_msg_size = src_data_size / max_physical_dim_value;
   } else if (local_link_failure_scheduling == LinkFailureScheduling::Mate_Enhanced && ( (local_chunk_stage % 2 == 0 && local_failure_type != 1 && local_failure_type != 4) || (local_chunk_stage % 3 == 0 && (local_failure_type == 1 || local_failure_type == 4) ) ) && local_link_failure_in_this_dimension == 0) {

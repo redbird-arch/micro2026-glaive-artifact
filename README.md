@@ -61,8 +61,10 @@ Glaive_AE/
 │       └── source-tree and generated-output validation
 ├── src/
 │   ├── collective-synthesizer/
+│   │   ├── README.md                  component overview and TACOS provenance
 │   │   ├── src/
-│   │   │   ├── synthesizer_standard/  Glaive standard and Speed scheduler
+│   │   │   ├── synthesizer/           profiling, scheduling, and fusion
+│   │   │   ├── synthesizer_standard/  standard and Speed scheduling paths
 │   │   │   ├── baselines/             MPICH, BiRing, HalfR+DR, and helpers
 │   │   │   ├── topology/              Mesh, Torus, Clos, CM384, FullMesh
 │   │   │   ├── collective/            collective representations
@@ -77,14 +79,10 @@ Glaive_AE/
 │   │   │   ├── collectives/           checked-in collective inputs
 │   │   │   ├── topologies/            evaluation topology descriptions
 │   │   │   ├── manifests/             experiment definitions
-│   │   │   ├── scripts/               local runners, parsers, and plots
+│   │   │   ├── scripts/               experiment runners, parsers, and plots
 │   │   │   └── parsed/figure9_h100_glaive_reference.csv
 │   │   │       └── measured timing input used by Figure 16
-│   │   ├── rebuttal/simulation_exp/
-│   │   │   ├── scripts/               trace-variant experiment suite
-│   │   │   └── plots/                 Figure 9 and 11(a) plotting scripts
-│   │   ├── libs/                       bundled C++ dependencies
-│   │   └── tests/                      solver unit tests
+│   │   └── libs/                       bundled C++ dependencies
 │   └── astra-sim-galois/
 │       ├── astra-sim/                  ASTRA-Sim core
 │       ├── build/astra_analytical/     analytical backend build scripts
@@ -95,6 +93,25 @@ Glaive_AE/
     ├── figure_mapping.md               exact figure-to-output mapping
     └── target_reproducibility.md       execution and validation details
 ```
+
+### Collective-synthesizer implementation
+
+`src/collective-synthesizer/src/main.cpp` provides the command-line entry
+point used by every solver experiment. The implementation is divided as
+follows:
+
+- `synthesizer/` implements demand profiling, latency/bandwidth scheduling,
+  schedule fusion, and event emission for the `complete` and `clean` modes.
+- `synthesizer_standard/` implements the `standard` path and the Speed
+  hot-flow/regular-flow decomposition used by Figures 6--11 and 16.
+- `baselines/` implements Bruck, Spreadout, pairwise exchange, BiRing,
+  HalfR+DR, and the analytical baseline variants used in the comparisons.
+- `topology/`, `collective/`, and `event_queue/` provide the network models,
+  collective demand representations, and timing primitives shared by the
+  schedulers.
+
+The `evaluation_assets/scripts/` directory also contains the controlled trace
+studies used by Figure 9 and the torus post-processing used by Figure 11.
 
 ## Hardware Requirements
 
@@ -204,15 +221,15 @@ runs/ae_<timestamp>/
 ├── metadata.txt
 ├── simulation/
 │   ├── evaluation_assets/
-│   │   └── collective-synthesizer/evaluation_assets/
-│   │       ├── raw_logs/             solver logs
-│   │       ├── parsed/               CSV and JSON summaries
-│   │       └── plots/                Figures 6--8, 10, 11(b), and 16
-│   └── simulation_exp/
-│       ├── generated/                generated trace variants and inputs
-│       ├── raw_logs/                 performance-suite logs
-│       ├── results/                  derived trace and performance metrics
-│       └── plots/                    Figures 9 and 11(a)
+│   │   ├── collective-synthesizer/evaluation_assets/
+│   │   │   ├── raw_logs/             solver logs
+│   │   │   ├── parsed/               CSV and JSON summaries
+│   │   │   └── plots/                Figures 6--8, 10, 11(b), and 16
+│   │   └── trace_studies/
+│   │       ├── generated/            generated trace variants and inputs
+│   │       ├── logs/                 performance-suite logs
+│   │       ├── results/              derived trace and performance metrics
+│   │       └── plots/                Figures 9 and 11(a)
 ├── end2end/
 │   ├── collective_results/           generated collective schedules
 │   ├── paper_external_collective/    materialized simulator inputs

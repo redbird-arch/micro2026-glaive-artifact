@@ -22,14 +22,11 @@ StreamBaseline::StreamBaseline(
   initial_data_size = phases_to_go.front().initial_data_size;
 }
 void StreamBaseline::init() {
-  // std::cout<<"stream number: "<<stream_num<<"is inited in node:
-  // "<<owner->id<<std::endl;
   initialized = true;
   last_init = Sys::boostedTick();
   if (!my_current_phase.enabled) {
     return;
   }
-  // std::cout << "StreamBaseline: init() function, " << phases_to_go.size() << std::endl; // debug output
   my_current_phase.algorithm->run(EventType::StreamInit, nullptr);
   if (steps_finished == 1) {
     queuing_delay.push_back(last_phase_change - creation_time);
@@ -38,12 +35,10 @@ void StreamBaseline::init() {
   total_packets_sent = 1;
 }
 void StreamBaseline::call(EventType event, CallData* data) {
-  // std::cout << "StreamBaseline: call() function, " << phases_to_go.size() << std::endl; // debug output
   if (event == EventType::WaitForVnetTurn) {
     owner->proceed_to_next_vnet_baseline(this);
     return;
   } else {
-    // std::cout<<"general event called in stream"<<std::endl;
     SharedBusStat* sharedBusStat = (SharedBusStat*)data;
     update_bus_stats(BusType::Both, sharedBusStat);
     my_current_phase.algorithm->run(EventType::General, data);

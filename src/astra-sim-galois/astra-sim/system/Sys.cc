@@ -111,9 +111,6 @@ Sys::~Sys() {
   }
 }
 
-// Sys::Sys(AstraNetworkAPI *NI,int id,int num_passes,std::string
-// my_sys,std::string my_workload,int total_stat_rows,int stat_row,std::string
-// path,std::string run_name)
 Sys::Sys(
     AstraNetworkAPI* NI,
     AstraMemoryAPI* MEM,
@@ -254,10 +251,6 @@ Sys::Sys(
       id, physical_dims, all_gather_implementation_per_dimension);
   logical_topologies["AllToAll"] = new GeneralComplexTopology(
       id, physical_dims, all_to_all_implementation_per_dimension);
-  // std::cout << "Sys (): AllReduce dim size = " << all_reduce_implementation_per_dimension.size() << std::endl; // Debug: debug print
-  // std::cout << "Sys (): ReduceScatter dim size = " << reduce_scatter_implementation_per_dimension.size() << std::endl; // Debug: debug print
-  // std::cout << "Sys (): AllGather dim size = " << all_gather_implementation_per_dimension.size() << std::endl; // Debug: debug print
-  // std::cout << "Sys (): AllToAll dim size = " << all_to_all_implementation_per_dimension.size() << std::endl; // Debug: debug print
 
   stream_counter = 0;
 
@@ -270,7 +263,6 @@ Sys::Sys(
               << " , perpendicular dim: " << fourth_dim
               << " , fourth dim: " << fifth_dim << std::endl;*/
   }
-  // NI->sim_init(); CHANGED BY PALLAVI**
   NI->sim_init(MEM);
   memBus = new MemBus(
       "NPU",
@@ -403,13 +395,6 @@ int Sys::break_dimension(int model_parallel_npu_group) {
         std::cout<<a<<", ";
       }
       std::cout << "]; dimension_to_break = " << dimension_to_break << std::endl;
-      // std::cout<<"implementation per dims: "<<std::endl;
-      // for(auto a:all_reduce_implementation_per_dimension){
-      //   if(a->type == CollectiveImplementationType::Ring){
-      //     std::cout<<"ring"<<", ";
-      //   }
-      // }
-      // std::cout << std::endl;
 
       logical_topologies["AllReduce"] = new GeneralComplexTopology(
           id, logical_dims, all_reduce_implementation_per_dimension);
@@ -497,7 +482,6 @@ int Sys::sim_send(
   NI->chunk_stage = this->chunk_stage;
   NI->failure_type = this->failure_type; // add failure type
   NI->collective_type = this->current_layer_collective_type;
-  // std::cout << "Sim_send function, NI->chunk_stage = " << NI->chunk_stage << std::endl; // debug output
   int link_failure_scheduling_flag_temp;
   if (NI->collective_type == ComType::All_to_All) {
     if (link_failure_scheduling == LinkFailureScheduling::Baseline) {
@@ -1096,7 +1080,6 @@ void Sys::SchedulerUnit::notify_stream_added(int vnet) {
   }
 }
 void Sys::SchedulerUnit::notify_stream_removed(int vnet, Tick running_time) {
-  // std::cout<<"hello1, vnet: "<<vnet<<std::endl;
   if (sys->id == 0 &&
       --total_active_chunks_per_dimension[queue_id_to_dimension[vnet]] == 0) {
     usage[queue_id_to_dimension[vnet]].decrease_usage();
@@ -1119,7 +1102,6 @@ void Sys::SchedulerUnit::notify_stream_removed(int vnet, Tick running_time) {
     if (max > max_running_streams - this->sys->total_running_streams) {
       max = max_running_streams - this->sys->total_running_streams;
     }
-    // sys->ask_for_schedule(max);
     sys->schedule(max);
   }
   // tmp
@@ -1171,8 +1153,6 @@ std::vector<std::string> Sys::split_string(std::string str, std::string sep) {
   return arr;
 }
 uint64_t Sys::determine_chunk_size(uint64_t size, ComType type) {
-  // uint64_t chunk_size = size / preferred_dataset_splits; 
-  // return chunk_size;
   double chunk_size = static_cast<double>(size) / preferred_dataset_splits; // change to double type to get decimals
   uint64_t rounded_chunk_size = static_cast<uint64_t>(ceil(chunk_size)); // ceil()
   return rounded_chunk_size;
@@ -1266,8 +1246,6 @@ CollectivePhase Sys::generate_collective_phase(
     return vn;
   } else if (
       collective_implementation->type == CollectiveImplementationType::HalfRing) {
-    // std::cout << "Here enters generate_collective_phase function" << std::endl; // debug output
-    // std::cout << "Generate_collective: num_dimensions = " << physical_dims.size() << std::endl; // debug output
     CollectivePhase vn(
         this,
         queue_id,
@@ -1288,8 +1266,6 @@ CollectivePhase Sys::generate_collective_phase(
             this->physical_dims,
             this->failure_type,
             this->non_uniform_flag));
-    // std::cout << "Generative_collective_phase: link_failure_per_dimension[queue_id] = " << link_failure_per_dimension[queue_id] << std::endl; // debug output
-    // std::cout << "Here finishes generate_collective_phase function" << std::endl; // debug output
     return vn;
   } else if (
       collective_implementation->type == CollectiveImplementationType::Direct ||
@@ -1352,10 +1328,6 @@ DataSet* Sys::generate_collective(
     SchedulingPolicy pref_scheduling,
     std::vector<int> link_failure_per_dimension) {
   
-  // // former implementation
-  // uint64_t chunk_size = determine_chunk_size(size, collective_type);
-  // uint64_t recommended_chunk_size = chunk_size;
-  // int streams = ceil(((double)size) / chunk_size); // how many chunks
 
   // former implementation isn't suitable for uneven chunk_size
   // 
@@ -1364,12 +1336,7 @@ DataSet* Sys::generate_collective(
   int streams = ceil(((double)size) / chunk_size); // how many chunks
   uint64_t size_temp = size;
   this->current_layer_collective_type = collective_type; // update collective type here
-  // if ((link_failure_scheduling == LinkFailureScheduling::Mate || link_failure_scheduling == LinkFailureScheduling::Mate_Enhanced) && (inter_dimension_scheduling == InterDimensionScheduling::ND_Torus_Ring || inter_dimension_scheduling == InterDimensionScheduling::ND_Torus_Ring_AlltoAll_AllReduce)) {
-  //   streams = 2 * ceil(((double)size) / chunk_size);
-  //   size = 2 * size_temp;
-  // }
 
-  // std::cout << "There are " << streams << " chunks in generate_collective function." << " Chunk size = " << chunk_size << ", size = " << size << std::endl; // debug output
   int tmp;
   DataSet* dataset = new DataSet(streams);
   int pri = get_priority(pref_scheduling);
@@ -1389,8 +1356,6 @@ DataSet* Sys::generate_collective(
   while (size > 0) {
     count++;
     chunk_size=std::min(chunk_size,size); // checking for underflow in corner cases
-    // Debug: debug print1
-    // 
     std::vector<int> dim_mapper;
     if ((collective_type == ComType::All_to_All) && (link_failure_scheduling == LinkFailureScheduling::Mate || link_failure_scheduling == LinkFailureScheduling::Mate_Enhanced) && (inter_dimension_scheduling == InterDimensionScheduling::ND_Torus_Ring || inter_dimension_scheduling == InterDimensionScheduling::ND_Torus_Ring_AlltoAll_AllReduce) && failure_type != 1 && failure_type != 4) {
         dim_mapper.resize(2 * topology->get_num_of_dimensions());
@@ -1409,8 +1374,6 @@ DataSet* Sys::generate_collective(
           dim_mapper.begin(),
           dim_mapper.begin() + round_robin_inter_dimension_scheduler,
           dim_mapper.end());
-      // std::rotate(dimensions_involved.begin(),dimensions_involved.begin()+round_robin_inter_dimension_scheduler,
-      // dimensions_involved.begin()+topology->get_num_of_dimensions());
       round_robin_inter_dimension_scheduler++;
       if (round_robin_inter_dimension_scheduler ==
           topology->get_num_of_dimensions()) {
@@ -1433,16 +1396,7 @@ DataSet* Sys::generate_collective(
           InterDimensionScheduling::OfflineGreedy,
           collective_type);
       chunk_size = prev_size - size;
-      // // Test what dim_mapper looks like
-      // for (size_t i = 0; i < dim_mapper.size(); ++i) {
-      //     std::cout << dim_mapper[i];
-      //     if (i < dim_mapper.size() - 1) {
-      //         std::cout << ", ";
-      //     }
-      // }
-      // std::cout << "]" << std::endl;
 
-      // Debug: debug print2
     } else if (
       collective_type == ComType::All_to_All &&
       (inter_dimension_scheduling == 
@@ -1495,9 +1449,7 @@ DataSet* Sys::generate_collective(
           tmp = phase.final_data_size;
         }  
       } else {
-        // std::cout << "Debug point 2: dim_mapper_size = " << dim_mapper.size() << ", get_num_of_dimensions() = " << topology->get_num_of_dimensions() << ", get_num_of_nodes_in_dimension(2) = " << topology->get_num_of_nodes_in_dimension(2) << ", dim_mapper[2] = " << dim_mapper[2] << std::endl; // debug output
         for (int dim = 0; dim < dim_mapper.size(); dim++) { // Go beyond the boundary
-          // std::cout << "Debug point 3: dim = " << dim << std::endl; // debug output
           if (topology->get_num_of_nodes_in_dimension(dim_mapper[dim]) == 1 ||
             !dimensions_involved[dim_mapper[dim]]) {
             continue;
@@ -1529,7 +1481,6 @@ DataSet* Sys::generate_collective(
         inter_dimension_scheduling == InterDimensionScheduling::OnlineGreedy ||
         inter_dimension_scheduling == 
            InterDimensionScheduling::ND_Torus_Ring_AlltoAll_AllReduce) {
-      // Debug: debug print4
       int dim = 0;
       for (dim = 0; dim < topology->get_num_of_dimensions(); dim++) {
         if (topology->get_num_of_nodes_in_dimension(dim_mapper[dim]) == 1 ||
@@ -1701,7 +1652,6 @@ void Sys::exitSimLoop(std::string msg) {
   return;
 }
 Tick Sys::boostedTick() {
-  // return current time
   Sys* ts = all_generators[0];
   if (ts == nullptr) {
     for (int i = 1; i < all_generators.size(); i++) {
@@ -1716,7 +1666,6 @@ Tick Sys::boostedTick() {
   return tick + offset;
 }
 void Sys::proceed_to_next_vnet_baseline(StreamBaseline* stream) {
-  // int added_delay=0;
   /*if (id == 0) {
     std::cout << "stream: " << stream->stream_num
               << "  scheduled after finishd steps: " << stream->steps_finished
@@ -1742,7 +1691,6 @@ void Sys::proceed_to_next_vnet_baseline(StreamBaseline* stream) {
   if (stream->my_current_phase.algorithm != nullptr) {
     delete stream->my_current_phase.algorithm;
   }
-  // std::cout<<"here we are 2.5"<<std::endl;
   if (stream->phases_to_go.size() == 0) {
     stream->take_bus_stats_average();
     stream->dataset->notify_stream_finished((StreamStat*)stream);
@@ -1762,7 +1710,6 @@ void Sys::proceed_to_next_vnet_baseline(StreamBaseline* stream) {
          it != target.end();
          ++it) {
       if (((StreamBaseline*)(*it))->stream_num == stream->stream_num) {
-        // std::cout<<"deleted from scheduler"<<std::endl;
         target.erase(it);
         break;
       }
@@ -1984,20 +1931,15 @@ void Sys::ask_for_schedule(int max) {
   if (min > max) {
     min = max;
   }
-  // std::cout<<"ask for schedule checkpoint 1, all gen size:
-  // "<<all_generators.size()<<std::endl;
   for (auto& gen : all_generators) {
     if (gen->ready_list.size() == 0 ||
         gen->ready_list.front()->stream_num != top) {
-      // std::cout<<"ask for schedule checkpoint 2.1"<<std::endl;
       return;
     }
     if (gen->ready_list.size() < min) {
-      // std::cout<<"ask for schedule checkpoint 2.2"<<std::endl;
       min = gen->ready_list.size();
     }
   }
-  // std::cout<<"ask for schedule checkpoint 3"<<std::endl;
   for (auto& gen : all_generators) {
     gen->schedule(min);
   }
@@ -2006,9 +1948,7 @@ void Sys::ask_for_schedule(int max) {
 void Sys::schedule(int num) {
   int ready_list_size = ready_list.size();
   int counter = std::min(num, ready_list_size);
-  // std::cout<<"schedule is called with num: "<<num<<" and counter"<<std::endl;
   while (counter > 0) {
-    // register_phases(ready_list.front(),ready_list.front()->phases_to_go);
     int top_vn = ready_list.front()->phases_to_go.front().queue_id;
     int total_waiting_streams = ready_list.size();
     int total_phases = ready_list.front()->phases_to_go.size();
@@ -2042,28 +1982,18 @@ void Sys::handleEvent(void* arg) {
   EventType event = ehd->event;
 
   if (event == EventType::CallEvents) {
-    // std::cout<<"handle event triggered at node: "<<id<<" for call events! at
-    // time: "<<Sys::boostedTick()<<std::endl;
     all_generators[id]->iterate();
     delete ehd;
   } else if (event == EventType::RendezvousSend) {
-    // std::cout<<"rendevouz send handle event triggered at node: "<<id<<" for
-    // call events! at time: "<<Sys::boostedTick()<<std::endl;
     RendezvousSendData* rsd = (RendezvousSendData*)ehd;
     rsd->send->call(EventType::General, nullptr);
     delete rsd;
   } else if (event == EventType::RendezvousRecv) {
-    // std::cout<<"rendevouz recv triggered at node: "<<id<<" for call events!
-    // at time: "<<Sys::boostedTick()<<std::endl;
     RendezvousRecvData* rrd = (RendezvousRecvData*)ehd;
     rrd->recv->call(EventType::General, nullptr);
     delete rrd;
   } else if (event == EventType::PacketReceived) {
     RecvPacketEventHadndlerData* rcehd = (RecvPacketEventHadndlerData*)ehd;
-    // std::cout<<"****************************handle event triggered for
-    // received packets! at node: "
-    //<<rcehd->owner->owner->id<<" at time: "<<Sys::boostedTick()<<" ,Tag:
-    //"<<rcehd->owner->stream_num<<std::endl;
     rcehd->owner->consume(rcehd);
     delete rcehd;
   }

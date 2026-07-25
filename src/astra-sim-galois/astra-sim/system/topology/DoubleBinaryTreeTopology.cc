@@ -26,8 +26,6 @@ DoubleBinaryTreeTopology::DoubleBinaryTreeTopology(
   this->counter = 0;
 }
 LogicalTopology* DoubleBinaryTreeTopology::get_topology() {
-  // return DBMIN;  //uncomment this and comment the rest lines of this funcion
-  // if you want to run allreduce only on one logical tree
   BinaryTree* ans = nullptr;
   if (counter % 2 == 0) {
     ans = DBMAX;

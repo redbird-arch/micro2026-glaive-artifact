@@ -23,7 +23,6 @@ BaseStream::BaseStream(
   if (synchronizer.find(stream_num) != synchronizer.end()) {
     synchronizer[stream_num]++;
   } else {
-    // std::cout<<"synchronizer set!"<<std::endl;
     synchronizer[stream_num] = 1;
     ready_counter[stream_num] = 0;
   }
@@ -50,7 +49,6 @@ bool BaseStream::is_ready() {
   return synchronizer[stream_num] > 0;
 }
 void BaseStream::consume_ready() {
-  // std::cout<<"consume ready called!"<<std::endl;
   assert(synchronizer[stream_num] > 0);
   synchronizer[stream_num]--;
   resume_ready(stream_num);

@@ -25,11 +25,7 @@ add_library(tacos
     collective/gather.cpp ${CMAKE_SOURCE_DIR}/include/tacos/collective/gather.h
     event_queue/event_queue.cpp ${CMAKE_SOURCE_DIR}/include/tacos/event_queue/event_queue.h
     event_queue/timer.cpp ${CMAKE_SOURCE_DIR}/include/tacos/event_queue/timer.h
-    synthesizer/time_expanded_network.cpp ${CMAKE_SOURCE_DIR}/include/tacos/synthesizer/time_expanded_network.h
-    synthesizer/synthesizer.cpp ${CMAKE_SOURCE_DIR}/include/tacos/synthesizer/synthesizer.h
-    synthesizer_2/synthesizer_2.cpp synthesizer_2/synthesizer_2.h
-    synthesizer_3/synthesizer_3.cpp synthesizer_3/synthesizer_3.h
-    synthesizer_4/synthesizer_4.cpp synthesizer_4/synthesizer_4.h
+    synthesizer/synthesizer.cpp synthesizer/synthesizer.h
     synthesizer_standard/standard_synthesizer.cpp synthesizer_standard/standard_synthesizer.h
     baselines/baseline_solver.cpp ${CMAKE_SOURCE_DIR}/include/tacos/baselines/baseline_solver.h
     baselines/bruck.cpp ${CMAKE_SOURCE_DIR}/include/tacos/baselines/bruck.h

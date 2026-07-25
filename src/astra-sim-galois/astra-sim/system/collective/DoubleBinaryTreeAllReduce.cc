@@ -30,17 +30,10 @@ DoubleBinaryTreeAllReduce::DoubleBinaryTreeAllReduce(
   if (boost_mode) {
     this->enabled = tree->is_enabled(id);
   }
-  // std::cout<<"tree allreduce is configured with id: "<<this->id<<" ,parent:
-  // "<<parent<<" ,left child: "<<left_child<<" ,right child: "<<right_child;
   if (type == BinaryTree::Type::Root) {
-    // std::cout<<" and I am Root ";
   } else if (type == BinaryTree::Type::Intermediate) {
-    // std::cout<<" and I am Intermediate ";
   } else if (type == BinaryTree::Type::Leaf) {
-    // std::cout<<" and I am Leaf ";
   }
-  // std::cout<<" ,and the enabled status: "<<this->enabled;
-  // std::cout<<std::endl;
 }
 void DoubleBinaryTreeAllReduce::run(EventType event, CallData* data) {
   if (state == State::Begin && type == BinaryTree::Type::Leaf) { // leaf.1
@@ -333,7 +326,6 @@ void DoubleBinaryTreeAllReduce::run(EventType event, CallData* data) {
     snd_req.tag = stream->stream_num;
     snd_req.reqType = UINT8;
     snd_req.vnet = this->stream->current_queue_id;
-    // std::cout<<"here************"<<std::endl;
     snd_req.layerNum = layer_num;
     stream->owner->front_end_sim_send(
         0,

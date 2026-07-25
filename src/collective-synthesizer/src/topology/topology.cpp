@@ -161,8 +161,6 @@ int Topology::diameter() const noexcept {
             }
         }
     }
-    // std::cout << "maxDistance: " << maxDistance << std::endl;
-
     return maxDistance;
 }
 

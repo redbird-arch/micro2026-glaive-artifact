@@ -145,7 +145,6 @@ void CSVWriter::write_cell(int row, int column, std::string data) {
   int status = 1;
   int fildes = -1;
   do {
-    // std::cout << "Trying to open file at path: " << path + name << std::endl;
     fildes = open((path + name).c_str(), O_RDWR);
   } while (fildes == -1);
 

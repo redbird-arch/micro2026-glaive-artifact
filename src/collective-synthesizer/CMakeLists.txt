@@ -12,9 +12,6 @@ cmake_minimum_required(VERSION 3.26)
 # Create Project
 project(TACOS LANGUAGES CXX)
 
-# Append cMake module path
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-
 # Set build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -38,12 +35,3 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 include_directories(${CMAKE_SOURCE_DIR}/libs/nlohmann_json/single_include)
 # Compile src files
 add_subdirectory(src)
-
-# Enable testing
-include(CTest)
-enable_testing()
-
-if(BUILD_TESTING)
-    include(FetchGoogleTest)
-    add_subdirectory(tests)
-endif()

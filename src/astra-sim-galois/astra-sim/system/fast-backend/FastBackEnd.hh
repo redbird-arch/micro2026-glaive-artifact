@@ -144,8 +144,6 @@ class FastBackEnd : public AstraNetworkAPI {
   AstraNetworkAPI* wrapped_backend;
   static void handleEvent(void* arg);
   int sim_comm_size(sim_comm comm, int* size);
-  // int sim_comm_get_rank();
-  // int sim_comm_set_rank(sim_comm comm, int rank);
   int sim_finish();
   double sim_time_resolution();
   int sim_init(AstraMemoryAPI* MEM);

@@ -1,6 +1,6 @@
 /*
 # File name  :    standard_synthesizer.h
-# Description:    Standard-mode fast path for Glaive/Synthesizer3 clean runs.
+# Description:    Standard-mode fast path for Glaive/Synthesizer clean runs.
 */
 
 #pragma once
@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <tacos/topology/topology.h>
-#include "synthesizer_3/synthesizer_3.h"
+#include "synthesizer/synthesizer.h"
 
 namespace tacos {
 
@@ -73,7 +73,7 @@ public:
     using Latency = double;
 
     StandardSynthesizer(const std::vector<int>& shape,
-                       Synthesizer3::DirectTopologyKind directTopologyKind,
+                       Synthesizer::DirectTopologyKind directTopologyKind,
                        Bandwidth bandwidth,
                        Latency latency);
     StandardSynthesizer(std::shared_ptr<Topology> topology,
@@ -88,13 +88,13 @@ public:
                              double dataTransferWeight);
 
     StandardResult solve(const std::vector<std::vector<DataSize>>& demand);
-    StandardResult solveSparse(const std::vector<DemandEntry3>& demand);
+    StandardResult solveSparse(const std::vector<DemandEntry>& demand);
     StandardResult solveHotOnly(const std::vector<std::vector<DataSize>>& demand);
     StandardResult solveColdOnly(const std::vector<std::vector<DataSize>>& demand);
-    StandardResult solveSparseHotOnly(const std::vector<DemandEntry3>& demand);
-    StandardResult solveSparseColdOnly(const std::vector<DemandEntry3>& demand);
+    StandardResult solveSparseHotOnly(const std::vector<DemandEntry>& demand);
+    StandardResult solveSparseColdOnly(const std::vector<DemandEntry>& demand);
     StandardProfileSummary profileSummary(const std::vector<std::vector<DataSize>>& demand) const;
-    StandardProfileSummary profileSparseSummary(const std::vector<DemandEntry3>& demand) const;
+    StandardProfileSummary profileSparseSummary(const std::vector<DemandEntry>& demand) const;
     StandardCacheStats cacheStats() const;
 
     std::string formatNodeName(int nodeID) const;
@@ -218,7 +218,7 @@ private:
     int computeChunkCount(int src, int dst, DataSize bytes) const;
 
     ProfiledFlows profileMatrix(const std::vector<std::vector<DataSize>>& demand) const;
-    ProfiledFlows profileSparse(const std::vector<DemandEntry3>& demand) const;
+    ProfiledFlows profileSparse(const std::vector<DemandEntry>& demand) const;
     ProfiledFlows profileCandidates(std::vector<Flow>& latencyFlows,
                                     std::vector<Flow>& bandwidthCandidates,
                                     double threshold) const;
@@ -263,7 +263,7 @@ private:
                                            double transferTime) const;
 
     std::vector<int> shape_;
-    Synthesizer3::DirectTopologyKind directTopologyKind_;
+    Synthesizer::DirectTopologyKind directTopologyKind_;
     bool isTorus_;
     int npusCount_;
     int gpuNodeCount_;

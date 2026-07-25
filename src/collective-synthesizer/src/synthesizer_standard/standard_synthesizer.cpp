@@ -73,12 +73,12 @@ void StandardSynthesizer::LoadState::add(int edgeId, double value) {
 }
 
 StandardSynthesizer::StandardSynthesizer(const std::vector<int>& shape,
-                                       Synthesizer3::DirectTopologyKind directTopologyKind,
+                                       Synthesizer::DirectTopologyKind directTopologyKind,
                                        Bandwidth bandwidth,
                                        Latency latency)
     : shape_(shape),
       directTopologyKind_(directTopologyKind),
-      isTorus_(directTopologyKind == Synthesizer3::DirectTopologyKind::Torus),
+      isTorus_(directTopologyKind == Synthesizer::DirectTopologyKind::Torus),
       npusCount_(1),
       gpuNodeCount_(0),
       totalNodeCount_(0),
@@ -97,7 +97,7 @@ StandardSynthesizer::StandardSynthesizer(std::shared_ptr<Topology> topology,
                                        Bandwidth bandwidth,
                                        Latency latency)
     : shape_(shape),
-      directTopologyKind_(Synthesizer3::DirectTopologyKind::Mesh),
+      directTopologyKind_(Synthesizer::DirectTopologyKind::Mesh),
       isTorus_(false),
       npusCount_(1),
       gpuNodeCount_(0),
@@ -130,7 +130,7 @@ StandardResult StandardSynthesizer::solve(const std::vector<std::vector<DataSize
     return solveProfiled(profileMatrix(demand));
 }
 
-StandardResult StandardSynthesizer::solveSparse(const std::vector<DemandEntry3>& demand) {
+StandardResult StandardSynthesizer::solveSparse(const std::vector<DemandEntry>& demand) {
     return solveProfiled(profileSparse(demand));
 }
 
@@ -142,11 +142,11 @@ StandardResult StandardSynthesizer::solveColdOnly(const std::vector<std::vector<
     return solveProfiledSubset(profileMatrix(demand), true, false);
 }
 
-StandardResult StandardSynthesizer::solveSparseHotOnly(const std::vector<DemandEntry3>& demand) {
+StandardResult StandardSynthesizer::solveSparseHotOnly(const std::vector<DemandEntry>& demand) {
     return solveProfiledSubset(profileSparse(demand), false, true);
 }
 
-StandardResult StandardSynthesizer::solveSparseColdOnly(const std::vector<DemandEntry3>& demand) {
+StandardResult StandardSynthesizer::solveSparseColdOnly(const std::vector<DemandEntry>& demand) {
     return solveProfiledSubset(profileSparse(demand), true, false);
 }
 
@@ -156,7 +156,7 @@ StandardProfileSummary StandardSynthesizer::profileSummary(
 }
 
 StandardProfileSummary StandardSynthesizer::profileSparseSummary(
-    const std::vector<DemandEntry3>& demand) const {
+    const std::vector<DemandEntry>& demand) const {
     return summarizeProfiled(profileSparse(demand));
 }
 
@@ -166,9 +166,9 @@ StandardCacheStats StandardSynthesizer::cacheStats() const {
     stats.totalNodeCount = totalNodeCount_;
     stats.allSmallSwitchPairsDominant = allSmallSwitchPairsDominant_;
     if (usesFormulaRouting()) {
-        if (directTopologyKind_ == Synthesizer3::DirectTopologyKind::FullMesh) {
+        if (directTopologyKind_ == Synthesizer::DirectTopologyKind::FullMesh) {
             stats.routingKind = "formula_fullmesh";
-        } else if (directTopologyKind_ == Synthesizer3::DirectTopologyKind::Torus) {
+        } else if (directTopologyKind_ == Synthesizer::DirectTopologyKind::Torus) {
             stats.routingKind = "formula_torus";
         } else {
             stats.routingKind = "formula_mesh";
@@ -249,7 +249,7 @@ void StandardSynthesizer::buildConnectionGraph() {
         }
     } else {
         connectionGraph_.assign(npusCount_, {});
-        if (directTopologyKind_ != Synthesizer3::DirectTopologyKind::FullMesh) {
+        if (directTopologyKind_ != Synthesizer::DirectTopologyKind::FullMesh) {
             for (int node = 0; node < npusCount_; ++node) {
                 auto coord = nodeIDToCoordinate(node);
                 for (std::size_t dim = 0; dim < shape_.size(); ++dim) {
@@ -335,7 +335,7 @@ void StandardSynthesizer::initializeStaticCaches() {
             } else if (node >= gpuNodeCount_ && node < totalNodeCount_) {
                 degree = static_cast<int>(getNeighborsFromGraph(node).size());
             }
-        } else if (directTopologyKind_ == Synthesizer3::DirectTopologyKind::FullMesh) {
+        } else if (directTopologyKind_ == Synthesizer::DirectTopologyKind::FullMesh) {
             for (int dimSize : shape_) {
                 degree += std::max(0, dimSize - 1);
             }
@@ -670,7 +670,7 @@ int StandardSynthesizer::computeDistance(int src, int dst) const {
         }
         auto srcCoord = nodeIDToCoordinate(src);
         auto dstCoord = nodeIDToCoordinate(dst);
-        if (directTopologyKind_ == Synthesizer3::DirectTopologyKind::FullMesh) {
+        if (directTopologyKind_ == Synthesizer::DirectTopologyKind::FullMesh) {
             int differingDims = 0;
             for (std::size_t dim = 0; dim < srcCoord.size(); ++dim) {
                 if (srcCoord[dim] != dstCoord[dim]) {
@@ -682,7 +682,7 @@ int StandardSynthesizer::computeDistance(int src, int dst) const {
         int distance = 0;
         for (std::size_t dim = 0; dim < srcCoord.size(); ++dim) {
             const int diff = std::abs(dstCoord[dim] - srcCoord[dim]);
-            if (directTopologyKind_ == Synthesizer3::DirectTopologyKind::Torus) {
+            if (directTopologyKind_ == Synthesizer::DirectTopologyKind::Torus) {
                 distance += std::min(diff, shape_[dim] - diff);
             } else {
                 distance += diff;
@@ -718,7 +718,7 @@ int StandardSynthesizer::computeNodeDegree(int nodeID) const {
         return 0;
     }
 
-    if (directTopologyKind_ == Synthesizer3::DirectTopologyKind::FullMesh) {
+    if (directTopologyKind_ == Synthesizer::DirectTopologyKind::FullMesh) {
         int degree = 0;
         for (int dimSize : shape_) {
             degree += std::max(0, dimSize - 1);
@@ -860,7 +860,7 @@ StandardSynthesizer::ProfiledFlows StandardSynthesizer::profileMatrix(
 }
 
 StandardSynthesizer::ProfiledFlows StandardSynthesizer::profileSparse(
-    const std::vector<DemandEntry3>& demand) const {
+    const std::vector<DemandEntry>& demand) const {
     const double threshold = computeBwLatThreshold();
     std::vector<Flow> latencyFlows;
     std::vector<Flow> bandwidthCandidates;
@@ -1499,7 +1499,7 @@ std::vector<std::vector<int>> StandardSynthesizer::enumerateDirectShortestPaths(
     const auto srcCoord = nodeIDToCoordinate(src);
     const auto dstCoord = nodeIDToCoordinate(dst);
 
-    if (directTopologyKind_ == Synthesizer3::DirectTopologyKind::FullMesh) {
+    if (directTopologyKind_ == Synthesizer::DirectTopologyKind::FullMesh) {
         std::vector<int> differingDims;
         for (std::size_t dim = 0; dim < srcCoord.size(); ++dim) {
             if (srcCoord[dim] != dstCoord[dim]) {
@@ -1542,7 +1542,7 @@ std::vector<std::vector<int>> StandardSynthesizer::enumerateDirectShortestPaths(
 
         std::vector<DirectionChoice> expanded;
         for (const auto& choice : choices) {
-            if (directTopologyKind_ == Synthesizer3::DirectTopologyKind::Torus) {
+            if (directTopologyKind_ == Synthesizer::DirectTopologyKind::Torus) {
                 const int forward = (dstValue - srcValue + shape_[dim]) % shape_[dim];
                 const int backward = (srcValue - dstValue + shape_[dim]) % shape_[dim];
                 if (forward == backward) {
@@ -1621,7 +1621,7 @@ void StandardSynthesizer::appendDirectShortestPaths(
         }
         auto nextCoord = coord;
         nextCoord[dim] += stepDirections[dim];
-        if (directTopologyKind_ == Synthesizer3::DirectTopologyKind::Torus) {
+        if (directTopologyKind_ == Synthesizer::DirectTopologyKind::Torus) {
             nextCoord[dim] = (nextCoord[dim] % shape_[dim] + shape_[dim]) % shape_[dim];
         }
         const int nextNode = coordinateToNodeID(nextCoord);

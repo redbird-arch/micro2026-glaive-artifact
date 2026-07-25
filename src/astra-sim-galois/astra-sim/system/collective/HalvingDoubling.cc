@@ -160,13 +160,9 @@ void HalvingDoubling::process_stream_count() {
       stream->state != StreamState::Dead) {
     stream->changeState(StreamState::Zombie);
     if (id == 0) {
-      // std::cout<<"stream "<<stream_num<<" changed state to
-      // zombie"<<std::endl;
     }
   }
   if (id == 0) {
-    // std::cout<<"for stream: "<<stream_num<<" ,total stream count left:
-    // "<<stream_count<<std::endl;
   }
 }
 void HalvingDoubling::process_max_count() {
@@ -175,8 +171,6 @@ void HalvingDoubling::process_max_count() {
   if (remained_packets_per_max_count == 0) {
     max_count--;
     if (id == 0) {
-      // std::cout<<"max count is now: "<<max_count<<"stream count is:
-      // "<<stream_count<<" , free_packets: "<<free_packets<<std::endl;
     }
     release_packets();
     remained_packets_per_max_count = 1;
@@ -266,11 +260,9 @@ void HalvingDoubling::insert_packet(Callable* sender) {
   Sys::sys_panic("should not inject nothing!");
 }
 bool HalvingDoubling::ready() {
-  // std::cout<<"ready called"<<std::endl;
   if (stream->state == StreamState::Created ||
       stream->state == StreamState::Ready) {
     stream->changeState(StreamState::Executing);
-    // init(); //should be replaced
   }
   if (!enabled || packets.size() == 0 || stream_count == 0 ||
       free_packets == 0) {
@@ -317,7 +309,6 @@ bool HalvingDoubling::ready() {
   return true;
 }
 void HalvingDoubling::exit() {
-  // std::cout<<"exiting collective in node: "<<stream->owner->id<<std::endl;
   if (packets.size() != 0) {
     packets.clear();
   }

@@ -17,7 +17,7 @@ from plot_common import (
 )
 
 
-# Keep the overall canvas aspect ratio unchanged while allowing the plot body
+# Preserve the overall canvas aspect ratio while allowing the plot body
 # rectangle to be tuned directly.
 FIG_SIZE = (26, 10)
 LAYOUT_LEFT = 0.075

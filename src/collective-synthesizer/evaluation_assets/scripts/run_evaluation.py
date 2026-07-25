@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 METHOD_ARGS = {
-    "glaive": ["--solver3", "mode=standard"],
+    "glaive": ["--solver", "mode=standard"],
     "biring": ["--baseline-method", "biring"],
     "halfringdr": ["--baseline-method", "halfringdr"],
     "mpibaseline": ["--baseline-method", "mpibaseline"],
@@ -60,7 +60,7 @@ def task_is_complete(path: Path) -> bool:
         return False
     text = path.read_text(errors="replace")
     return (
-        "[TACOS Solver3] Done!" in text
+        "[TACOS Solver] Done!" in text
         or "[TACOS Baseline] Done!" in text
         or "[TACOS Baselines] Done!" in text
         or "[TACOS] Done!" in text

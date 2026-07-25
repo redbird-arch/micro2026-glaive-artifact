@@ -50,8 +50,6 @@ class AstraNetworkAPI {
   int chunk_stage;
   int failure_type;
   AstraSim::ComType collective_type; // add this to enable correct comm size for other collectives except AlltoAll
-  // int get_stream_num_ID () ;
-  // int get_count_num_ID () ;
 
   virtual BackendType get_backend_type() {
     return BackendType::NotSpecified;

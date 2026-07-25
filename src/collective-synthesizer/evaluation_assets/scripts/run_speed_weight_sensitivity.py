@@ -306,7 +306,7 @@ def run_task(repo_root: Path, task: WeightTask, index: int, total: int, force: b
         str(repo_root / "build" / "bin" / "tacos"),
         task.topology_json,
         task.collective_json,
-        "--solver3",
+        "--solver",
         "mode=speed",
         f"hot_cap={task.hot_cap}",
         f"path_weight_sum={task.path_weight_sum:.12g}",

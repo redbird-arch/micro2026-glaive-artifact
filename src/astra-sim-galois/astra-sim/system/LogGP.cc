@@ -77,10 +77,6 @@ void LogGP::process_next_read() {
   tmp.total_transfer_queue_time += Sys::boostedTick() - tmp.start_time;
   partner->switch_to_receiver(tmp, offset);
   if (generator->id == 0) {
-    // std::cout << "beginning sending movreq: " << tmp.my_id <<"  to
-    // "<<partner->name
-    //<<" in time: "<<generator->boostedTick()<<" actual send in time:
-    //"<<generator->boostedTick()+offset<<" data size: "<<tmp.size<<std::endl;
   }
   sends.pop_front();
   curState = State::Sending;
@@ -131,9 +127,7 @@ void LogGP::switch_to_receiver(MemMovRequest mr, Tick offset) {
   subsequent_reads = 0;
 }
 void LogGP::call(EventType event, CallData* data) {
-  // std::cout<<"called "<<name<<std::endl;
   if (event == EventType::Send_Finished) {
-    // std::cout<<"1"<<std::endl;
     last_trans = Sys::boostedTick();
     prevState = curState;
     curState = State::Free;
@@ -149,15 +143,11 @@ void LogGP::call(EventType event, CallData* data) {
       curState = State::Free;
     }
     if (receives.front().processed == true) {
-      // std::cout<<"2.1"<<std::endl;
       if (NPU_MEM != nullptr) {
         receives.front().processed = false;
         receives.front().loggp = this;
         receives.front().callEvent = EventType::Consider_Process;
         if (generator->id == 0) {
-          // std::cout << "movreq: " << receives.front().my_id
-          //<< " is received to " <<name
-          //<<" time: "<<generator->boostedTick()<<std::endl;
         }
         pre_process.push_back(receives.front());
         receives.pop_front();
@@ -171,18 +161,12 @@ void LogGP::call(EventType event, CallData* data) {
       } else {
         receives.front().processed = false;
         if (generator->id == 0) {
-          // std::cout << "movreq: " << receives.front().my_id
-          //<< " is received to " <<name
-          //<<" time: "<<generator->boostedTick()<<std::endl;
         }
         processing.push_back(receives.front());
         receives.pop_front();
       }
       if (processing_state == ProcState::Free && processing.size() > 0) {
         if (generator->id == 0) {
-          // std::cout << "movreq: " << processing.front().my_id
-          //<< " is scheduled for processing in "<<name
-          //<<" time: "<<generator->boostedTick()<<std::endl;
         }
         processing.front().total_processing_queue_time +=
             Sys::boostedTick() - processing.front().start_time;
@@ -195,7 +179,6 @@ void LogGP::call(EventType event, CallData* data) {
         processing_state = ProcState::Processing;
       }
     } else if (receives.front().send_back == true) {
-      // std::cout<<"2.2"<<std::endl;
       if (NPU_MEM != nullptr) {
         receives.front().send_back = false;
         receives.front().callEvent = EventType::Consider_Send_Back;
@@ -216,10 +199,6 @@ void LogGP::call(EventType event, CallData* data) {
       }
     } else {
       if (generator->id == 0) {
-        // std::cout<<"movreq: "<<receives.front().my_id<<
-        //" is received to "<<name<<" and is finished, receives size:
-        //"<<receives.size()
-        //<<" time: "<<generator->boostedTick()<<std::endl;
       }
       if (NPU_MEM != nullptr) {
         receives.front().callEvent = EventType::Consider_Retire;
@@ -242,21 +221,16 @@ void LogGP::call(EventType event, CallData* data) {
             receives.front().total_processing_time);
         tmp->update_bus_stats(BusType::Mem, receives.front());
         receives.front().callable->call(trigger_event, tmp);
-        // std::cout<<"2.3"<<std::endl;
         receives.pop_front();
       }
     }
   } else if (event == EventType::Processing_Finished) {
-    // std::cout<<"3"<<std::endl;
     assert(processing.size() > 0);
     processing.front().total_processing_time +=
         Sys::boostedTick() - processing.front().start_time;
     processing.front().start_time = Sys::boostedTick();
     processing_state = ProcState::Free;
     if (generator->id == 0) {
-      // std::cout<<"movreq: "<<processing.front().my_id<<" finished processing
-      // in "<<name
-      //<<" time: "<<generator->boostedTick()<<std::endl;
     }
     if (processing.front().send_back == true) {
       if (NPU_MEM != nullptr) {
@@ -292,10 +266,6 @@ void LogGP::call(EventType event, CallData* data) {
         processing.pop_front();
       } else {
         if (generator->id == 0) {
-          // std::cout<<"movreq: "<<processing.front().my_id<<
-          //" finished processing in "<<name<<" and is finished, processing
-          // size: "<<processing.size()
-          //<<" time: "<<generator->boostedTick()<<std::endl;
         }
         SharedBusStat* tmp = new SharedBusStat(
             BusType::Shared,
@@ -310,9 +280,6 @@ void LogGP::call(EventType event, CallData* data) {
     }
     if (processing.size() > 0) {
       if (generator->id == 0) {
-        // std::cout<<"movreq: "<<processing.front().my_id<<" is scheduled for
-        // processing in "<<name
-        // <<" time: "<<generator->boostedTick()<<std::endl;
       }
       processing.front().total_processing_queue_time +=
           Sys::boostedTick() - processing.front().start_time;
@@ -325,7 +292,6 @@ void LogGP::call(EventType event, CallData* data) {
           ((processing.front().size / 100) * local_reduction_delay) + 50);
     }
   } else if (event == EventType::Consider_Retire) {
-    // std::cout<<"4"<<std::endl;
     SharedBusStat* tmp = new SharedBusStat(
         BusType::Shared,
         retirements.front().total_transfer_queue_time,
@@ -336,23 +302,17 @@ void LogGP::call(EventType event, CallData* data) {
     tmp->update_bus_stats(BusType::Mem, movRequest);
     movRequest.callable->call(trigger_event, tmp);
     if (!movRequest.mem_bus_finished) {
-      // std::cout<<"***********************Violation****************"<<std::endl;
     }
     retirements.erase(talking_it);
     delete data;
   } else if (event == EventType::Consider_Process) {
-    // std::cout<<"5"<<std::endl;
     MemMovRequest movRequest = *talking_it;
     processing.push_back(movRequest);
     if (!movRequest.mem_bus_finished) {
-      // std::cout<<"***********************Violation****************"<<std::endl;
     }
     pre_process.erase(talking_it);
     if (processing_state == ProcState::Free && processing.size() > 0) {
       if (generator->id == 0) {
-        // std::cout << "movreq: " << processing.front().my_id
-        //<< " is scheduled for processing in "<<name
-        //<<" time: "<<generator->boostedTick()<<std::endl;
       }
       processing.front().total_processing_queue_time +=
           Sys::boostedTick() - processing.front().start_time;
@@ -367,17 +327,14 @@ void LogGP::call(EventType event, CallData* data) {
     delete data;
   } else if (event == EventType::Consider_Send_Back) {
     assert(pre_send.size() > 0);
-    // std::cout<<"6: "<<talking_it->size<<std::endl;
     MemMovRequest movRequest = *talking_it;
     sends.push_back(movRequest);
     if (!movRequest.mem_bus_finished) {
-      // std::cout<<"***********************Violation****************"<<std::endl;
     }
     pre_send.erase(talking_it);
     delete data;
   }
   if (curState == State::Free) {
-    // std::cout<<"7"<<std::endl;
     if (sends.size() > 0) {
       if (subsequent_reads > THRESHOLD && partner->sends.size() > 0 &&
           partner->subsequent_reads <= THRESHOLD) {

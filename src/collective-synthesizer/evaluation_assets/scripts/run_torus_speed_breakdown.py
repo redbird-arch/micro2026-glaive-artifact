@@ -17,13 +17,13 @@ from typing import Any
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[2]
+REPO_ROOT = SCRIPT_DIR.parents[1]
 EVALUATION_ASSETS_OUT_ROOT = Path(
     os.environ.get("GLAIVE_EVAL_ASSETS_OUT_ROOT", REPO_ROOT / "evaluation_assets")
 ).resolve()
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import sim_exp  # noqa: E402
+import run_trace_studies as trace_studies  # noqa: E402
 
 
 SPEED_OPT3_PATH = REPO_ROOT / "evaluation_assets" / "scripts" / "run_speed_opt3.py"
@@ -76,7 +76,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def load_cases() -> list[dict[str, str]]:
-    manifest = sim_exp.RESULTS_DIR / "generated_trace_variant_manifest.csv"
+    manifest = trace_studies.RESULTS_DIR / "generated_trace_variant_manifest.csv"
     by_variant: dict[str, dict[str, str]] = {}
     with manifest.open(newline="") as handle:
         for row in csv.DictReader(handle):
@@ -97,10 +97,10 @@ def run_speed(case: dict[str, str], log_path: Path, force: bool) -> str:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     if not force and log_path.exists() and log_path.stat().st_size > 0 and speed_opt3.base.task_is_complete(log_path):
         return "skip"
-    command = sim_exp.runtime_command() + [
+    command = trace_studies.runtime_command() + [
         str(REPO_ROOT / case["topology_json"]),
         str(REPO_ROOT / case["collective_json"]),
-        "--solver3",
+        "--solver",
         "mode=speed",
     ]
     env = os.environ.copy()
@@ -113,12 +113,12 @@ def write_cold_inputs(case: dict[str, str], cold_matrix: list[list[int]]) -> tup
     original_collective = json.loads((REPO_ROOT / case["collective_json"]).read_text())
     block_bytes = int(original_collective.get("block_bytes", 4096))
     trace_path = (
-        sim_exp.GENERATED_DIR
+        trace_studies.GENERATED_DIR
         / "speed_cold_traces"
         / f"{case['case_id']}_cold.csv"
     )
     collective_path = (
-        sim_exp.GENERATED_DIR
+        trace_studies.GENERATED_DIR
         / "speed_cold_collectives"
         / f"{case['case_id']}_cold.json"
     )
@@ -142,7 +142,7 @@ def run_cold_halfringdr(case: dict[str, str], collective_path: Path, log_path: P
     log_path.parent.mkdir(parents=True, exist_ok=True)
     if not force and log_path.exists() and log_path.stat().st_size > 0 and speed_opt3.base.task_is_complete(log_path):
         return "skip"
-    command = sim_exp.runtime_command() + [
+    command = trace_studies.runtime_command() + [
         str(REPO_ROOT / case["topology_json"]),
         str(collective_path),
         "--baseline-method",
@@ -411,8 +411,8 @@ def build_rows(cases: list[dict[str, str]], force: bool) -> tuple[list[dict[str,
     summary_rows: list[dict[str, Any]] = []
     event_rows: list[dict[str, Any]] = []
     status_rows: list[dict[str, Any]] = []
-    log_root = sim_exp.LOGS_DIR / "torus_speed_breakdown"
-    cold_log_root = sim_exp.LOGS_DIR / "torus_speed_breakdown_cold_halfringdr"
+    log_root = trace_studies.LOGS_DIR / "torus_speed_breakdown"
+    cold_log_root = trace_studies.LOGS_DIR / "torus_speed_breakdown_cold_halfringdr"
     for case in cases:
         log_path = log_root / f"{case['case_id']}.log"
         status = run_speed(case, log_path, force)
@@ -425,7 +425,7 @@ def build_rows(cases: list[dict[str, str]], force: bool) -> tuple[list[dict[str,
                     "variant": case["variant"],
                     "standard_status": status,
                     "cold_halfringdr_status": "not_run",
-                    "standard_log_path": sim_exp.rel(log_path),
+                    "standard_log_path": trace_studies.rel(log_path),
                     "cold_halfringdr_log_path": "",
                     "cold_trace_path": "",
                     "cold_collective_path": "",
@@ -450,14 +450,14 @@ def build_rows(cases: list[dict[str, str]], force: bool) -> tuple[list[dict[str,
                 "variant": case["variant"],
                 "standard_status": status,
                 "cold_halfringdr_status": cold_status,
-                "standard_log_path": sim_exp.rel(log_path),
-                "cold_halfringdr_log_path": sim_exp.rel(cold_log_path),
+                "standard_log_path": trace_studies.rel(log_path),
+                "cold_halfringdr_log_path": trace_studies.rel(cold_log_path),
                 # Cold inputs are generated below the run output root, not in
-                # the immutable source tree.  Use sim_exp.rel() so both
+                # the immutable source tree.  Use trace_studies.rel() so both
                 # source inputs and generated run artifacts are represented
                 # consistently in the status CSV.
-                "cold_trace_path": sim_exp.rel(cold_trace_path),
-                "cold_collective_path": sim_exp.rel(cold_collective_path),
+                "cold_trace_path": trace_studies.rel(cold_trace_path),
+                "cold_collective_path": trace_studies.rel(cold_collective_path),
                 "backend_cold_makespan_us": backend_cold_makespan,
                 "model_cold_no_hot_makespan_us": model_cold_no_hot_makespan,
             }

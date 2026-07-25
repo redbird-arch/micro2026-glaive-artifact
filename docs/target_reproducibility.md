@@ -47,7 +47,7 @@ experiment results into the source directories.
 2. `scripts/run_evaluation_assets_direct.sh` executes the synthetic,
    link-utilization, scalability, sensitivity, and synthesis-overhead cases
    for Figures 6--8, 10, 11(b), and 16.
-3. `src/collective-synthesizer/rebuttal/simulation_exp/scripts/sim_exp.py`
+3. `src/collective-synthesizer/evaluation_assets/scripts/run_trace_studies.py`
    generates the trace variants and performance summaries for Figures 9 and
    11(a).
 4. `scripts/run_end2end_direct.sh` generates the collective schedules, runs
@@ -69,9 +69,9 @@ simulation/evaluation_assets/collective-synthesizer/evaluation_assets/
 The trace-variant stage writes:
 
 ```text
-simulation/simulation_exp/
+simulation/evaluation_assets/trace_studies/
 ├── generated/
-├── raw_logs/
+├── logs/
 ├── results/
 └── plots/
 ```

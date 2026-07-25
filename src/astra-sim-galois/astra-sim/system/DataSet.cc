@@ -28,7 +28,6 @@ void DataSet::notify_stream_finished(StreamStat* data) {
   }
   if (finished_streams == total_streams) {
     finished = true;
-    // std::cout<<"********************************Dataset finished"<<std::endl;
     finish_tick = Sys::boostedTick();
     if (notifier != nullptr) {
       take_stream_stats_average();

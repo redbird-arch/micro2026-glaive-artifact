@@ -293,7 +293,7 @@ def run_task(repo_root: Path, task: SensitivityTask, index: int, total: int, for
         str(repo_root / "build" / "bin" / "tacos"),
         task.topology_json,
         task.collective_json,
-        "--solver3",
+        "--solver",
     ]
     if force or not base.task_is_complete(task.log_path):
         task.log_path.parent.mkdir(parents=True, exist_ok=True)

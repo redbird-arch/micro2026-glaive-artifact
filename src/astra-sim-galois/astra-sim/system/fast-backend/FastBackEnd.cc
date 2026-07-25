@@ -114,7 +114,6 @@ std::pair<bool, double> DynamicLatencyTable::lookupLatency(
     return std::make_pair(false, -1);
   }
 
-  // return found latency data.
   return std::make_pair(true, latency->second);
 }
 
@@ -264,13 +263,7 @@ int FastBackEnd::sim_finish() {
   return 1;
 }
 
-// int FastBackEnd::sim_comm_get_rank(sim_comm comm, int *size) {
-//    return wrapped_backend->sim_comm_get_rank(comm,size);
-//}
 
-// int FastBackEnd::sim_comm_set_rank(sim_comm comm, int rank) {
-//    return wrapped_backend->sim_comm_set_rank(comm,rank);
-//}
 
 int FastBackEnd::sim_comm_size(sim_comm comm, int* size) {
   return wrapped_backend->sim_comm_size(comm, size);

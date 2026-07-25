@@ -99,20 +99,6 @@ Layer::Layer(
   this->specific_parallellism = specific_policy;
   assert(generator != NULL);
 
-  // // print involved dimension infos
-  // std::cout << "Layer " << layer_num << " FWD Involved Dims: [";
-  // for (int i = 0; i < fwd_pass_comm_involved_dimensions.size(); i++) {
-  //   std::cout << fwd_pass_comm_involved_dimensions[i] << ", ";
-  // }
-  // std::cout << "]; BWD_WG Involved Dims: [";
-  // for (int i = 0; i < weight_grad_comm_involved_dimensions.size(); i++) {
-  //   std::cout << weight_grad_comm_involved_dimensions[i] << ", ";
-  // }
-  // std::cout << "]; BWD_IG Involved Dims: [";
-  // for (int i = 0; i < input_grad_comm_involved_dimensions.size(); i++) {
-  //   std::cout << input_grad_comm_involved_dimensions[i] << ", ";
-  // }
-  // std::cout << "]" << std::endl;
 }
 
 void Layer::call(EventType event, CallData* mdata) {
@@ -242,8 +228,6 @@ void Layer::call(EventType event, CallData* mdata) {
       return;
     } else if (started_waiting_for_fwd_pass.size() > 0) {
       if (generator->id == 0) {
-        // std::cout<<"***** info: fwd pass comm collective for layer: "<<id<<"
-        // is finished and callback called************"<<std::endl;
       }
       total_waiting_for_fwd_comm += fwd_pass_datasets[data]->finish_tick -
           started_waiting_for_fwd_pass.front();
@@ -702,7 +686,6 @@ void Layer::issue_forward_pass_comm(
         fwd_pass_comm_involved_dimensions,
         pref_scheduling,
         layer_num);
-    // std::cout << "Layer num: " << layer_num << std::endl; // debug output
     if (!fp->active) {
       if (generator->id == 0) {
         std::cout
@@ -864,7 +847,6 @@ void Layer::issue_input_grad_comm(
         input_grad_comm_involved_dimensions,
         pref_scheduling,
         layer_num);
-    // std::cout << "Layer num: " << layer_num << std::endl; // debug output
     if (!ig->active) {
       if (generator->id == 0) {
         std::cout
@@ -967,8 +949,6 @@ void Layer::issue_input_grad_comm(
 void Layer::issue_weight_grad_comm(
     SchedulingPolicy pref_scheduling,
     CollectiveBarrier barrier) {
-  // if(weight_grad_dataset!=NULL)
-  // delete weight_grad_dataset;
   DataSet* wg = NULL;
   wg_barrier = barrier;
   collective_counter++;
@@ -1030,7 +1010,6 @@ void Layer::issue_weight_grad_comm(
         weight_grad_comm_involved_dimensions,
         pref_scheduling,
         layer_num);
-    // std::cout << "Layer num: " << layer_num << std::endl; // debug output
     if (!wg->active) {
       if (generator->id == 0) {
         std::cout

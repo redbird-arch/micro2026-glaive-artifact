@@ -14,7 +14,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import sim_exp  # noqa: E402
+import run_trace_studies as trace_studies  # noqa: E402
 
 
 TOPOLOGY_KEY = "torus_tpuv4_4x4x4"
@@ -59,7 +59,7 @@ def variant_sort_key(row: dict[str, str]) -> tuple[int, str]:
 
 
 def load_cases() -> list[dict[str, str]]:
-    manifest_path = sim_exp.RESULTS_DIR / "generated_trace_variant_manifest.csv"
+    manifest_path = trace_studies.RESULTS_DIR / "generated_trace_variant_manifest.csv"
     by_sample_variant: dict[tuple[int, str], dict[str, str]] = {}
     with manifest_path.open(newline="") as handle:
         for row in csv.DictReader(handle):
@@ -83,8 +83,8 @@ def load_cases() -> list[dict[str, str]]:
 
 
 def method_stats(case: dict[str, str], method: str, log_path: Path) -> dict[str, object]:
-    makespan_us, solver_us = sim_exp.parse_log_metrics(log_path)
-    intervals = sim_exp.parse_link_intervals(log_path)
+    makespan_us, solver_us = trace_studies.parse_log_metrics(log_path)
+    intervals = trace_studies.parse_link_intervals(log_path)
     row: dict[str, object] = {
         "case_id": case["case_id"],
         "topology_key": TOPOLOGY_KEY,
@@ -92,7 +92,7 @@ def method_stats(case: dict[str, str], method: str, log_path: Path) -> dict[str,
         "variant": case["variant"],
         "method": method,
         "status": "success" if makespan_us is not None else "failed",
-        "log_path": sim_exp.rel(log_path),
+        "log_path": trace_studies.rel(log_path),
         "makespan_us": makespan_us if makespan_us is not None else "",
         "solver_time_us": solver_us if solver_us is not None else "",
         "selection_label": case["selection_label"],
@@ -100,8 +100,8 @@ def method_stats(case: dict[str, str], method: str, log_path: Path) -> dict[str,
         "topology_json": case["topology_json"],
     }
     if makespan_us is not None:
-        row.update(sim_exp.fabric_balance_metrics(intervals, makespan_us, case["topology_json"]))
-        edge_stats, unknown_edges = sim_exp.normalized_edge_stats(intervals, case["topology_json"])
+        row.update(trace_studies.fabric_balance_metrics(intervals, makespan_us, case["topology_json"]))
+        edge_stats, unknown_edges = trace_studies.normalized_edge_stats(intervals, case["topology_json"])
         row["normalized_unknown_edge_count"] = unknown_edges
         row["_edge_stats"] = edge_stats
     return row
@@ -236,7 +236,7 @@ def main() -> None:
     args = parser.parse_args()
 
     cases = load_cases()
-    log_root = sim_exp.LOGS_DIR / "torus_link_hotedge_metrics"
+    log_root = trace_studies.LOGS_DIR / "torus_link_hotedge_metrics"
     rows: list[dict[str, object]] = []
     statuses: list[dict[str, object]] = []
     summary_rows: list[dict[str, object]] = []
@@ -244,7 +244,7 @@ def main() -> None:
         case_rows: list[dict[str, object]] = []
         for method in METHODS:
             log_path = log_root / method / f"{case['case_id']}.log"
-            status = sim_exp.run_one_task(case, method, log_path, args.force)
+            status = trace_studies.run_one_task(case, method, log_path, args.force)
             statuses.append(
                 {
                     "case_id": case["case_id"],
@@ -252,7 +252,7 @@ def main() -> None:
                     "variant": case["variant"],
                     "method": method,
                     "status": status,
-                    "log_path": sim_exp.rel(log_path),
+                    "log_path": trace_studies.rel(log_path),
                 }
             )
             row = method_stats(case, method, log_path)
@@ -261,10 +261,10 @@ def main() -> None:
         summary_rows.append(build_summary(case, case_rows))
 
     scores = sample_scores(summary_rows)
-    detail_path = sim_exp.RESULTS_DIR / "torus_link_hotedge_metrics.csv"
-    summary_path = sim_exp.RESULTS_DIR / "torus_link_hotedge_metrics_summary.csv"
-    status_path = sim_exp.RESULTS_DIR / "torus_link_hotedge_metrics_status.csv"
-    scores_path = sim_exp.RESULTS_DIR / "torus_link_hotedge_sample_scores.csv"
+    detail_path = trace_studies.RESULTS_DIR / "torus_link_hotedge_metrics.csv"
+    summary_path = trace_studies.RESULTS_DIR / "torus_link_hotedge_metrics_summary.csv"
+    status_path = trace_studies.RESULTS_DIR / "torus_link_hotedge_metrics_status.csv"
+    scores_path = trace_studies.RESULTS_DIR / "torus_link_hotedge_sample_scores.csv"
     write_csv(detail_path, clean_internal_columns(rows))
     write_csv(summary_path, summary_rows)
     write_csv(status_path, statuses)
@@ -273,10 +273,10 @@ def main() -> None:
     print(
         json.dumps(
             {
-                "detail": sim_exp.rel(detail_path),
-                "summary": sim_exp.rel(summary_path),
-                "status": sim_exp.rel(status_path),
-                "scores": sim_exp.rel(scores_path),
+                "detail": trace_studies.rel(detail_path),
+                "summary": trace_studies.rel(summary_path),
+                "status": trace_studies.rel(status_path),
+                "scores": trace_studies.rel(scores_path),
                 "case_count": len(cases),
                 "selected_sample_index": selected["sample_index"],
                 "selected_source_trace": selected["source_trace"],

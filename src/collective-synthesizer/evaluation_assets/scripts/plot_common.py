@@ -10,8 +10,8 @@ from pathlib import Path
 import numpy as np
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-OUT_ROOT = Path(os.environ.get("GLAIVE_SIM_EXP_OUT_ROOT", REPO_ROOT / "rebuttal" / "simulation_exp")).resolve()
+REPO_ROOT = Path(__file__).resolve().parents[2]
+OUT_ROOT = Path(os.environ.get("GLAIVE_TRACE_STUDIES_OUT_ROOT", REPO_ROOT / "evaluation_assets")).resolve()
 RESULTS_DIR = OUT_ROOT / "results"
 PLOTS_DIR = OUT_ROOT / "plots"
 

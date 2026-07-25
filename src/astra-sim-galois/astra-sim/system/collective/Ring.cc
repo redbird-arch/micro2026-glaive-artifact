@@ -17,7 +17,6 @@ Ring::Ring(
     InjectionPolicy injection_policy,
     bool boost_mode)
     : Algorithm(layer_num) {
-  // std::cout<<"Ring checkmark 0"<<std::endl;
   this->comType = type;
   this->id = id;
   this->logicalTopology = ring_topology;
@@ -80,8 +79,6 @@ Ring::Ring(
       break;
     case ComType::All_Gather:
       this->final_data_size = data_size * nodes_in_ring;
-      // std::cout<<"heeeey! here! final data size: "<<this->final_data_size<<"
-      // ,nodes in ring: "<<nodes_in_ring<<std::endl;
       this->msg_size = data_size;
       break;
     case ComType::Reduce_Scatter:
@@ -94,7 +91,6 @@ Ring::Ring(
       break;
     default:;
   }
-  // std::cout << "ring collective is configured at node: " << id << " ,with sender: " << current_sender << " ,and receiver: " << current_receiver << " and enable status is: " << this->enabled << ", offset is: " << ring_topology->offset << std::endl; // Debug: release it 
 }
 int Ring::get_non_zero_latency_packets() {
   return (nodes_in_ring - 1) * parallel_reduce * 1;
@@ -156,13 +152,9 @@ void Ring::process_stream_count() {
       stream->state != StreamState::Dead) {
     stream->changeState(StreamState::Zombie);
     if (id == 0) {
-      // std::cout<<"stream "<<stream_num<<" changed state to
-      // zombie"<<std::endl;
     }
   }
   if (id == 0) {
-    // std::cout<<"for stream: "<<stream_num<<" ,total stream count left:
-    // "<<stream_count<<std::endl;
   }
 }
 void Ring::process_max_count() {
@@ -171,8 +163,6 @@ void Ring::process_max_count() {
   if (remained_packets_per_max_count == 0) {
     max_count--;
     if (id == 0) {
-      // std::cout<<"max count is now: "<<max_count<<"stream count is:
-      // "<<stream_count<<" , free_packets: "<<free_packets<<std::endl;
     }
     release_packets();
     remained_packets_per_max_count = 1;
@@ -239,16 +229,13 @@ void Ring::insert_packet(Callable* sender) {
     non_zero_latency_packets--;
     return;
   }
-  // std::cout<<"insert packet called"<<std::endl;
   Sys::sys_panic("should not inject nothing!");
   //}
 }
 bool Ring::ready() {
-  // std::cout<<"ready called"<<std::endl;
   if (stream->state == StreamState::Created ||
       stream->state == StreamState::Ready) {
     stream->changeState(StreamState::Executing);
-    // init(); //should be replaced
   }
   if (!enabled || packets.size() == 0 || stream_count == 0 ||
       free_packets == 0) {
@@ -276,7 +263,6 @@ bool Ring::ready() {
       &snd_req,
       &Sys::handleEvent,
       nullptr); // stream_num+(packet.preferred_dest*50)
-  // std::cout << "Ring algorithm is called" << std::endl; // Debug
   sim_request rcv_req;
   rcv_req.vnet = this->stream->current_queue_id;
   rcv_req.layerNum = layer_num;
@@ -298,22 +284,10 @@ bool Ring::ready() {
       ehd); // stream_num+(owner->id*50)
   reduce();
   if (true) { // Debug: release and modify content that needs printing
-  //   std::cout << "I am node: " << id << " and I sent: " << total_packets_sent 
-  //     << " packets so far, finished steps: " << stream->steps_finished 
-  //     << ", for stream:" << stream->stream_num 
-  //     << ", total received: " << total_packets_received
-  //     << " at time: " << Sys::boostedTick() 
-  //     << " vnet is:" << stream->my_current_phase.queue_id
-  //     << ", remained: " << this->stream_count
-  //     << ", current dest is: " << packet.preferred_dest
-  //     << ", waiting for packet from: " << packet.preferred_src 
-  //     << std::endl;
-  //  return true;
   }
   return true;
 }
 void Ring::exit() {
-  // std::cout<<"exiting collective in node: "<<stream->owner->id<<std::endl;
   if (packets.size() != 0) {
     packets.clear();
   }

@@ -115,7 +115,7 @@ def task_is_complete(path: Path) -> bool:
     if not path.exists() or path.stat().st_size == 0:
         return False
     text = path.read_text(errors="replace")
-    return "[TACOS Solver3] Done!" in text or "[TACOS] Done!" in text or "[TACOS Baseline] Done!" in text
+    return "[TACOS Solver] Done!" in text or "[TACOS] Done!" in text or "[TACOS Baseline] Done!" in text
 
 
 def run_local_task(repo_root: Path, task: Task) -> None:
@@ -244,9 +244,9 @@ def fairness_tasks(repo_root: Path) -> list[Task]:
         ),
     ]
     modes = {
-        "original": ("--solver3", "mode=complete"),
-        "clean": ("--solver3", "mode=clean"),
-        "standard": ("--solver3", "mode=standard"),
+        "original": ("--solver", "mode=complete"),
+        "clean": ("--solver", "mode=clean"),
+        "standard": ("--solver", "mode=standard"),
     }
     tasks: list[Task] = []
     for case_name, topology_json, collective_json, case_modes in cases:
@@ -307,7 +307,7 @@ def scalability_tasks(repo_root: Path, limit: int = 0) -> list[Task]:
                 name=f"standard_scalability::{case['topology_type']}::{log_stem}",
                 topology_json=str(case["topology_json"]),
                 collective_json=str(case["collective_json"]),
-                args=("--solver3", "mode=standard"),
+                args=("--solver", "mode=standard"),
                 log_path=repo_root
                 / "evaluation_assets"
                 / "raw_logs"
@@ -644,7 +644,7 @@ def speed_tasks(repo_root: Path) -> list[Task]:
             name="speed::fattree_8x4_eval::layer1_group0_256MB",
             topology_json="evaluation_assets/topologies/synthetic/fattree_8x4_eval.json",
             collective_json="evaluation_assets/collectives/synthetic/32devices/layer1_group0_32devices_256MB.json",
-            args=("--solver3", "mode=speed"),
+            args=("--solver", "mode=speed"),
             log_path=repo_root / "evaluation_assets" / "raw_logs" / "speed" / "fattree_8x4_eval_layer1_group0_256MB.log",
             stage="speed",
         )
@@ -883,7 +883,7 @@ def breakeven_tasks(repo_root: Path) -> list[Task]:
                     name=f"breakeven::decode::{topology_key}::{case['case_id']}",
                     topology_json=str(topo["topology_json"]),
                     collective_json=str(case["collective_json"]),
-                    args=("--solver3", "mode=standard"),
+                    args=("--solver", "mode=standard"),
                     log_path=repo_root
                     / "evaluation_assets"
                     / "raw_logs"
@@ -901,7 +901,7 @@ def breakeven_tasks(repo_root: Path) -> list[Task]:
                     name=f"breakeven::prefill::{topology_key}::{case['case_id']}",
                     topology_json=str(topo["topology_json"]),
                     collective_json=str(case["collective_json"]),
-                    args=("--solver3", "mode=standard"),
+                    args=("--solver", "mode=standard"),
                     log_path=repo_root
                     / "evaluation_assets"
                     / "raw_logs"

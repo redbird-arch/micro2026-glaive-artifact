@@ -19,6 +19,7 @@ VARIANT_ORDER = (
     "worst_top8",
 )
 
+# Figure 11(a) palette.
 BASELINE_EDGE = "#118ab2"
 BASELINE_FILL = "#4cc9f0"
 INCREASE_EDGE = "#06d6a0"

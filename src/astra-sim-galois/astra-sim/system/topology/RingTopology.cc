@@ -29,7 +29,6 @@ RingTopology::RingTopology(
   }
   this->id = id;
   this->total_nodes_in_ring = total_nodes_in_ring;
-  // std::cout << "Init(): total nodes in ring: " << this->total_nodes_in_ring << std::endl; // Debug: find the influence of tp
   this->index_in_ring = index_in_ring;
   this->offset = offset;
   this->dimension = dimension;
@@ -38,7 +37,6 @@ RingTopology::RingTopology(
 }
 void RingTopology::find_neighbors() {
   this->next_node_id = id + offset;
-  // std::cout << "find_neighbors(): total nodes in ring: " << this->total_nodes_in_ring << std::endl; // Debug: find the influence of tp
   if (index_in_ring == total_nodes_in_ring - 1) {
     this->next_node_id -= (total_nodes_in_ring * offset);
     assert(this->next_node_id >= 0);
@@ -52,9 +50,6 @@ void RingTopology::find_neighbors() {
 int RingTopology::get_receiver_node(int node_id, Direction direction) {
   assert(id_to_index.find(node_id) != id_to_index.end()); // make sure that this node_id element exists in id_to_index map, actually this is ensured when initializing (Line 36)
   int index = id_to_index[node_id];
-  // std::cout<<"for node id of"<<node_id<<" at dimension: "<<name<<" index of:
-  // "<<index<<" is retrieved"<<std::endl;
-  // std::cout << "get_receiver_node(): total nodes in ring: " << this->total_nodes_in_ring << std::endl;
   if (direction == RingTopology::Direction::Clockwise) {
     int receiver = node_id + offset;
     if (index == total_nodes_in_ring - 1) {
@@ -96,15 +91,7 @@ int RingTopology::get_receiver_node(int node_id, Direction direction) {
 int RingTopology::get_sender_node(int node_id, Direction direction) {
   assert(id_to_index.find(node_id) != id_to_index.end());
   int index = id_to_index[node_id];
-  // std::cout<<"for node id of"<<node_id<<" at dimension: "<<name<<" index of:
-  // "<<index<<" is retrieved"<<std::endl;
 
-  // // Debug: check the offset and index
-  // if (node_id == 0) {
-  //   std::cout << "Get_sender_node: " << name << ", total_nodes_in_ring: " << total_nodes_in_ring
-  //             << ", node id: " << node_id << ", offset: " << offset
-  //             << ", index_in_ring: " << index_in_ring << std::endl;
-  // }
 
   if (direction == RingTopology::Direction::Anticlockwise) {
     int sender = node_id + offset;

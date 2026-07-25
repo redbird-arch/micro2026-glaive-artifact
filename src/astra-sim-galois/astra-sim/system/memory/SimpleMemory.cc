@@ -26,8 +26,6 @@ void SimpleMemory::set_network_api(AstraNetworkAPI* astraNetworkApi) {
 }
 uint64_t SimpleMemory::npu_mem_read(uint64_t size) {
   npu_read_request_count++;
-  // timespec_t time=NI->sim_get_time();
-  // double time_ns=time.time_val;
   double delay = (size / npu_access_bw_GB);
   /*if(time_ns+access_latency<last_request_serviced){
       double offset=(last_request_serviced+delay)-time_ns;
@@ -39,16 +37,10 @@ uint64_t SimpleMemory::npu_mem_read(uint64_t size) {
       last_request_serviced=time_ns+access_latency+delay;
       return (uint64_t)(offset);
   }*/
-  // std::cout<<"npu read req, node id: "<<NI->sim_comm_get_rank()<<", bytes:
-  // "<<size<<
-  //", current delay: "<<delay<<", total requests:
-  //"<<npu_read_request_count<<std::endl;
   return delay;
 }
 uint64_t SimpleMemory::SimpleMemory::npu_mem_write(uint64_t size) {
   npu_write_request_count++;
-  // timespec_t time=NI->sim_get_time();
-  // double time_ns=time.time_val;
   double delay = (size / npu_access_bw_GB);
   /*if(time_ns+access_latency<last_request_serviced){
       double offset=(last_request_serviced+delay)-time_ns;
@@ -60,10 +52,6 @@ uint64_t SimpleMemory::SimpleMemory::npu_mem_write(uint64_t size) {
       last_request_serviced=time_ns+access_latency+delay;
       return (uint64_t)(offset);
   }*/
-  // std::cout<<"npu write req, node id: "<<NI->sim_comm_get_rank()<<", bytes:
-  // "<<size<<
-  //", current delay: "<<delay<<", total requests:
-  //"<<npu_write_request_count<<std::endl;
   return delay;
 }
 uint64_t SimpleMemory::nic_mem_read(uint64_t size) {
@@ -79,10 +67,6 @@ uint64_t SimpleMemory::nic_mem_read(uint64_t size) {
     offset = (time_ns + access_latency + delay) - time_ns;
     last_read_request_serviced = time_ns + access_latency + delay;
   }
-  // std::cout<<"nic read req,,node id: "<<NI->sim_comm_get_rank()<<", bytes:
-  // "<<size<<
-  //", current delay: "<<delay<<", total read requests:
-  //"<<nic_read_request_count<<std::endl;
   return (uint64_t)(offset);
 }
 uint64_t SimpleMemory::nic_mem_write(uint64_t size) {
@@ -98,10 +82,6 @@ uint64_t SimpleMemory::nic_mem_write(uint64_t size) {
     offset = (time_ns + access_latency + delay) - time_ns;
     last_write_request_serviced = time_ns + access_latency + delay;
   }
-  // std::cout<<"nic write req, node id: "<<NI->sim_comm_get_rank()<<", bytes:
-  // "<<size<<
-  //", current delay: "<<delay<<", total write requests:
-  //"<<nic_write_request_count<<std::endl;
   return (uint64_t)(offset);
 }
 uint64_t SimpleMemory::mem_read(uint64_t size) {

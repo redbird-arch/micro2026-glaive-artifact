@@ -6,11 +6,7 @@
 
 #include <iostream>
 #include <fstream>
-#include <thread>
 #include <vector>
-#include <atomic>
-#include <mutex>
-#include <filesystem>
 #include <algorithm>
 #include <sstream>
 #include <numeric>
@@ -26,7 +22,6 @@
 #include <tacos/collective/all_to_all_v.h>
 #include <tacos/collective/gather.h>
 #include <tacos/event_queue/timer.h>
-#include <tacos/synthesizer/synthesizer.h>
 #include <tacos/topology/mesh.h>
 #include <tacos/topology/torus.h>
 #include <tacos/topology/hypercube.h>
@@ -39,10 +34,7 @@
 #include <tacos/baselines/pairwise.h>
 #include <tacos/baselines/biring.h>
 #include <tacos/baselines/others.h>
-#include "thread_output.h"
-#include "synthesizer_2/synthesizer_2.h"
-#include "synthesizer_3/synthesizer_3.h"
-#include "synthesizer_4/synthesizer_4.h"
+#include "synthesizer/synthesizer.h"
 #include "synthesizer_standard/standard_synthesizer.h"
 
 using namespace tacos;
@@ -349,7 +341,7 @@ DemandStats computeDenseDemandStats(const std::vector<std::vector<long long>>& d
     return finalizeDemandStats(static_cast<int>(demand.size()), cols, std::move(entries));
 }
 
-DemandStats computeSparseDemandStats(const std::vector<DemandEntry3>& demand, int expectedNpus) {
+DemandStats computeSparseDemandStats(const std::vector<DemandEntry>& demand, int expectedNpus) {
     std::vector<DemandFingerprintEntry> entries;
     entries.reserve(demand.size());
     for (const auto& flow : demand) {
@@ -761,7 +753,7 @@ std::vector<int> npuIDToCoordinate(
     return coord;
 }
 
-std::vector<DemandEntry3> generateSyntheticDemandFlows(
+std::vector<DemandEntry> generateSyntheticDemandFlows(
     const json& spec,
     const std::vector<int>& shape,
     const std::string& topologyType,
@@ -773,7 +765,7 @@ std::vector<DemandEntry3> generateSyntheticDemandFlows(
 
     const std::string pattern = spec.value("pattern", "far-end");
 
-    std::vector<DemandEntry3> flows;
+    std::vector<DemandEntry> flows;
     if (pattern == "far-end") {
         const long long bytesPerFlow = spec.at("bytes-per-flow").get<long long>();
         const int fanout = spec.value("fanout", 1);
@@ -963,325 +955,37 @@ std::pair<std::shared_ptr<Collective>, long long> createCollectiveWithChunkSize(
     }
 }
 
-// Backward compatibility wrapper
-std::shared_ptr<Collective> createCollective(const json& config, int npusCount) {
-    auto [collective, _] = createCollectiveWithChunkSize(config, npusCount);
-    return collective;
-}
-
-// Structure to store thread results
-struct ThreadResult {
-    int thread_id;
-    double solve_time;
-    double collective_time;
-    std::string filename;
-    
-    // Constructor for easy initialization
-    ThreadResult(int id, double solve, double collective, const std::string& fname)
-        : thread_id(id), solve_time(solve), collective_time(collective), filename(fname) {}
-};
-
-// Thread-safe output function
-void threadSafeOutput(std::ofstream& log_file, const std::string& message) {
-    static std::mutex output_mutex;
-    std::lock_guard<std::mutex> lock(output_mutex);
-    log_file << message << std::flush;
-}
-
-// Function to run synthesizer in a thread
-void runSynthesizerThread(int thread_id, 
-                         std::shared_ptr<Topology> topology, 
-                         std::shared_ptr<Collective> collective, 
-                         long long chunkSize,
-                         const json& topoConfig,
-                         const json& collConfig,
-                         const std::string& output_dir,
-                         const TopologyFaultInfo& faultInfo,
-                         std::vector<ThreadResult>& results,
-                         std::mutex& results_mutex,
-                         std::atomic<int>& completed_threads) {
-    
-    // Create output file stream for this thread
-    std::string filename = output_dir + "/" + std::to_string(thread_id + 1) + ".log";
-    std::ofstream log_file(filename);
-    if (!log_file) {
-        std::cerr << "Error: Could not open log file " << filename << std::endl;
-        completed_threads++;
-        return;
-    }
-    
-    // Set thread-local output stream
-    tacos::ThreadOutput::setOutputStream(log_file);
-    
-    // Set precision for this file stream
-    log_file << std::fixed;
-    log_file.precision(2);
-    
-    try {
-        // Use stringstream to build output messages
-        std::stringstream ss;
-        
-        // print header
-        ss << "[Glaive Collective Synthesizer - Thread " << (thread_id + 1) << "]" << std::endl;
-        ss << "########################################################" << std::endl;
-
-        // print topology info
-        std::string topologyType = topoConfig["topology"].get<std::string>();
-        int collectiveNpusCount;
-        if (topologyType == "fat-tree" || topologyType == "rail-optimized" || topologyType == "cm" || topologyType == "cm384") {
-            // For switch topologies, calculate GPU count from shape
-            auto shape = topoConfig["shape"].get<std::vector<int>>();
-            collectiveNpusCount = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
-        } else {
-            // For direct-connect topologies, use total node count
-            collectiveNpusCount = topology->npusCount();
-        }
-        const auto npusCount = topology->npusCount();
-        ss << "[Topology Information]" << std::endl;
-        ss << "\t- Topology: " << topologyType << std::endl;
-        ss << "\t- NPUs Count: " << npusCount << std::endl;
-        if (topoConfig.contains("shape")) {
-            auto shape = topoConfig["shape"].get<std::vector<int>>();
-            ss << "\t- Dimension: " << shape.size() << std::endl;
-            ss << "\t- Shape: [";
-            for (size_t i = 0; i < shape.size(); ++i) {
-                ss << shape[i] << (i + 1 < shape.size() ? ", " : "]\n");
-            }
-        }
-        if (topoConfig.contains("latency")) {
-            auto latency = topoConfig["latency"].get<std::vector<double>>();
-            ss << "\t- Latency per dimension (ns): [";
-            for (size_t i = 0; i < latency.size(); ++i) {
-                ss << latency[i] << (i + 1 < latency.size() ? ", " : "]\n");
-            }
-        }
-        if (topoConfig.contains("bandwidth")) {
-            auto bandwidth = topoConfig["bandwidth"].get<std::vector<double>>();
-            ss << "\t- Bandwidth per dimension (GB/s): [";
-            for (size_t i = 0; i < bandwidth.size(); ++i) {
-                ss << bandwidth[i] << (i + 1 < bandwidth.size() ? ", " : "]\n");
-            }
-        }
-        // Print link fault information
-        if (!faultInfo.linkFaultInfos.empty()) {
-            ss << "\t- Link Faults (coordinate format): ";
-            for (size_t i = 0; i < faultInfo.linkFaultInfos.size(); ++i) {
-                ss << faultInfo.linkFaultInfos[i].coordStr;
-                if (i + 1 < faultInfo.linkFaultInfos.size()) {
-                    ss << ", ";
-                }
-            }
-            ss << std::endl;
-            ss << "\t- Link Faults (NpuID format): ";
-            for (size_t i = 0; i < faultInfo.linkFaultInfos.size(); ++i) {
-                ss << faultInfo.linkFaultInfos[i].npu1 << "-" << faultInfo.linkFaultInfos[i].npu2;
-                if (i + 1 < faultInfo.linkFaultInfos.size()) {
-                    ss << ", ";
-                }
-            }
-            ss << std::endl;
-        }
-        // Print node fault information
-        if (!faultInfo.nodeFaultInfos.empty()) {
-            ss << "\t- Node Faults (coordinate format): ";
-            for (size_t i = 0; i < faultInfo.nodeFaultInfos.size(); ++i) {
-                ss << faultInfo.nodeFaultInfos[i].coordStr;
-                if (i + 1 < faultInfo.nodeFaultInfos.size()) {
-                    ss << ", ";
-                }
-            }
-            ss << std::endl;
-            ss << "\t- Node Faults (NpuID format): ";
-            for (size_t i = 0; i < faultInfo.nodeFaultInfos.size(); ++i) {
-                ss << faultInfo.nodeFaultInfos[i].npuID;
-                if (i + 1 < faultInfo.nodeFaultInfos.size()) {
-                    ss << ", ";
-                }
-            }
-            ss << std::endl;
-        }
-
-        // create collective object here, then its output can enter the log file of this thread
-        auto [thread_collective, thread_chunkSize] = createCollectiveWithChunkSize(collConfig, collectiveNpusCount);
-        
-        // Apply node faults to collective (remove faulty nodes from postconditions)
-        applyNodeFaultsToCollective(thread_collective, faultInfo.nodeFaultInfos);
-        
-        // get collective info
-        int chunkfactor = thread_collective->getChunkFactor();
-        const auto chunksCount = thread_collective->chunksCount();
-        ss << "chunksCount = " << chunksCount << ", npusCount = " << npusCount << std::endl;
-        const auto chunkSizeMB = thread_chunkSize / (1 << 20);
-
-        // print initialization info
-        ss << "########################################################" << std::endl;
-        ss << "[Collective Information]" << std::endl;
-        ss << "\t- Collective: " << collConfig["collective"].get<std::string>() << std::endl;
-        ss << "\t- Chunks Count: " << chunksCount << std::endl;
-        ss << "\t- Chunk Size: " << thread_chunkSize << " B";
-        ss << " (" << chunkSizeMB << " MB)" << std::endl;
-        ss << "\t- Chunk Factor = " << chunkfactor << std::endl;
-        ss << "########################################################" << std::endl;
-
-        // Write the header information to file
-        threadSafeOutput(log_file, ss.str());
-        ss.str(""); // Clear the stringstream
-
-        // create timer and synthesizer
-        auto synthesizerTimer = Timer();
-        synthesizerTimer.start();
-        
-        // Create synthesizer and set its output stream
-        auto synthesizer = Synthesizer();
-        synthesizer.setThreadOutputStream(log_file);
-        
-        // Run synthesizer with thread-specific collective
-        auto collectiveTime = synthesizer.solve(topology, thread_collective, thread_chunkSize);
-        synthesizerTimer.stop();
-
-        // print result
-        auto time = synthesizerTimer.time();
-        const auto timeSec = time / 1e6;
-        ss << "Time to solve: " << time << " us";
-        ss << " (" << timeSec << " s)" << std::endl;
-        ss << "Collective Time: " << collectiveTime << " us" << std::endl;
-        ss << "########################################################" << std::endl;
-        ss << "[TACOS] Thread " << (thread_id + 1) << " Done!" << std::endl;
-
-        // Write final results to file
-        threadSafeOutput(log_file, ss.str());
-
-        // Store result
-        std::lock_guard<std::mutex> lock(results_mutex);
-        results.push_back(ThreadResult(thread_id, time, collectiveTime, filename));
-        
-    } catch (const std::exception& e) {
-        std::stringstream error_ss;
-        error_ss << "Error in thread " << (thread_id + 1) << ": " << e.what() << std::endl;
-        threadSafeOutput(log_file, error_ss.str());
-    }
-    
-    log_file.close();
-    completed_threads++;
-}
-
-
-
-// Function to parse log files and extract timing information
-void parseLogFiles(const std::string& output_dir, std::vector<ThreadResult>& results, int thread_num) {
-    for (int i = 1; i <= thread_num; ++i) {
-        std::string filename = output_dir + "/" + std::to_string(i) + ".log";
-        std::ifstream file(filename);
-        if (!file) continue;
-        
-        double solve_time = 0.0;
-        double collective_time = 0.0;
-        std::string line;
-        
-        while (std::getline(file, line)) {
-            if (line.find("Time to solve:") != std::string::npos) {
-                // Extract the time value
-                size_t pos = line.find(":");
-                if (pos != std::string::npos) {
-                    std::string time_str = line.substr(pos + 1);
-                    size_t us_pos = time_str.find(" us");
-                    if (us_pos != std::string::npos) {
-                        time_str = time_str.substr(0, us_pos);
-                        // Remove any non-numeric characters except decimal point
-                        time_str.erase(std::remove_if(time_str.begin(), time_str.end(), 
-                                        [](char c) { return !std::isdigit(c) && c != '.'; }), 
-                                      time_str.end());
-                        try {
-                            solve_time = std::stod(time_str);
-                        } catch (const std::exception& e) {
-                            std::cerr << "Error parsing solve time from: " << time_str << std::endl;
-                        }
-                    }
-                }
-            } else if (line.find("Collective Time:") != std::string::npos) {
-                // Extract the time value
-                size_t pos = line.find(":");
-                if (pos != std::string::npos) {
-                    std::string time_str = line.substr(pos + 1);
-                    size_t us_pos = time_str.find(" us");
-                    if (us_pos != std::string::npos) {
-                        time_str = time_str.substr(0, us_pos);
-                        // Remove any non-numeric characters except decimal point
-                        time_str.erase(std::remove_if(time_str.begin(), time_str.end(), 
-                                        [](char c) { return !std::isdigit(c) && c != '.'; }), 
-                                      time_str.end());
-                        try {
-                            collective_time = std::stod(time_str);
-                        } catch (const std::exception& e) {
-                            std::cerr << "Error parsing collective time from: " << time_str << std::endl;
-                        }
-                    }
-                }
-            }
-        }
-        
-        if (solve_time > 0 && collective_time > 0) {
-            results.push_back(ThreadResult(i-1, solve_time, collective_time, filename));
-        }
-        
-        file.close();
-    }
-}
-
-// Print usage information
 void printUsage(const char* programName) {
     std::cerr << "Usage: " << programName << " <topology_config.json> <collective_config.json> [options]" << std::endl;
     std::cerr << "\nOptions:" << std::endl;
-    std::cerr << "  --multithread <output_dir>  Run in multithread mode with 32 threads" << std::endl;
-    std::cerr << "  --solver2                   Use Synthesizer2 (unified solver for non-uniform AllToAll)" << std::endl;
-    std::cerr << "  --solver3                   Use Synthesizer3 (profiling-scheduling-fusion workflow)" << std::endl;
-    std::cerr << "  --solver4                   Use Synthesizer4 (hotspot-based matrix decomposition)" << std::endl;
+    std::cerr << "  --solver                   Run the Glaive scheduler" << std::endl;
     std::cerr << "  --baselines                 Run baseline algorithms (Bruck, Spreadout, Pairwise, BiRing, and formula baselines)" << std::endl;
     std::cerr << "  --baseline-method <name>    Run only one baseline: biring, halfringdr, mpibaseline, pairwise, bruck, spreadout" << std::endl;
-    std::cerr << "  --compare                   Compare different routing strategies (solver2 only)" << std::endl;
-    std::cerr << "  --no-diffusion              Disable diffusion preprocessing (solver2 only)" << std::endl;
-    std::cerr << "  --quiet                     Disable verbose output (solver2/solver3/solver4 only)" << std::endl;
-    std::cerr << "  --print-schedule            Print detailed schedule (solver2/solver3/solver4 only)" << std::endl;
-    std::cerr << "  mode=clean|complete|standard|speed Select condensed, complete, standard, or Speed output (solver3)" << std::endl;
-    std::cerr << "  --standard-hot-cap <n>       Override Standard hot-flow cap; default is 4 * N" << std::endl;
-    std::cerr << "  path_weight_sum=<w>         Override Standard Thrust NormSumLoad score weight; default 0.3" << std::endl;
-    std::cerr << "  path_weight_max=<w>         Override Standard Thrust NormMaxLoad score weight; default 0.2" << std::endl;
-    std::cerr << "  path_weight_data=<w>        Override Standard Thrust NormDataTransfer score weight; default 0.5" << std::endl;
-    std::cerr << "  --strategy <name>           Force routing strategy (solver2 only):" << std::endl;
-    std::cerr << "                              dimension_order, load_balanced, multi_path, adaptive" << std::endl;
+    std::cerr << "  --quiet                     Suppress verbose solver output" << std::endl;
+    std::cerr << "  --print-schedule            Print the generated schedule" << std::endl;
+    std::cerr << "  mode=clean|complete|standard|speed Select the Glaive execution mode" << std::endl;
+    std::cerr << "  --standard-hot-cap <n>      Override the standard hot-flow cap (default: 4 * N)" << std::endl;
+    std::cerr << "  path_weight_sum=<w>         Override the NormSumLoad score weight (default: 0.3)" << std::endl;
+    std::cerr << "  path_weight_max=<w>         Override the NormMaxLoad score weight (default: 0.2)" << std::endl;
+    std::cerr << "  path_weight_data=<w>        Override the NormDataTransfer score weight (default: 0.5)" << std::endl;
     std::cerr << "\nExamples:" << std::endl;
-    std::cerr << "  " << programName << " input/topology/mesh2d_1.json input/collective/allgather_1.json" << std::endl;
-    std::cerr << "  " << programName << " input/topology/mesh2d_1.json input/collective/allgather_1.json --multithread results" << std::endl;
-    std::cerr << "  " << programName << " input/topology/mesh2d_1.json input/collective/alltoallv.json --solver2" << std::endl;
-    std::cerr << "  " << programName << " input/topology/mesh2d_1.json input/collective/alltoallv.json --solver2 --compare" << std::endl;
-    std::cerr << "  " << programName << " input/topology/mesh2d_1.json input/collective/alltoallv.json --solver3" << std::endl;
-    std::cerr << "  " << programName << " input/topology/mesh2d_1.json input/collective/alltoallv.json --solver4" << std::endl;
+    std::cerr << "  " << programName << " input/topology/mesh2d_1.json input/collective/alltoallv.json --solver mode=standard" << std::endl;
     std::cerr << "  " << programName << " input/topology/mesh2d_1.json input/collective/alltoallv.json --baselines" << std::endl;
 }
 
 int main(int argc, char* argv[]) {
-    // Parse command line arguments
-    bool multithread = false;
-    bool useSolver2 = false;
-    bool useSolver3 = false;
-    bool useSolver4 = false;
+    bool useSolver = false;
     bool useBaselines = false;
-    bool compareMode = false;
-    bool enableDiffusion = true;
     bool verbose = true;
     bool printSchedule = false;
     bool cleanMode = false;
-    bool solver4CleanMode = false;  // mode=clean vs complete (default)
     bool standardMode = false;
     bool speedMode = false;
     int standardHotFlowCap = 0;
     double standardPathWeightSum = 0.3;
     double standardPathWeightMax = 0.2;
     double standardPathWeightData = 0.5;
-    RoutingStrategy forcedStrategy = RoutingStrategy::ADAPTIVE;
-    bool forceStrategy = false;
     std::string baselineMethod;
-    std::string output_dir;
     std::string topoPath;
     std::string collPath;
 
@@ -1293,31 +997,14 @@ int main(int argc, char* argv[]) {
     topoPath = argv[1];
     collPath = argv[2];
 
-    // Parse options
     for (int i = 3; i < argc; ++i) {
-        if (strcmp(argv[i], "--multithread") == 0) {
-            multithread = true;
-            if (i + 1 < argc && argv[i + 1][0] != '-') {
-                output_dir = argv[++i];
-            } else {
-                std::cerr << "Error: --multithread requires output directory" << std::endl;
-                return 1;
-            }
-        } else if (strcmp(argv[i], "--solver2") == 0) {
-            useSolver2 = true;
-        } else if (strcmp(argv[i], "--solver3") == 0) {
-            useSolver3 = true;
-        } else if (strcmp(argv[i], "--solver4") == 0) {
-            useSolver4 = true;
+        if (strcmp(argv[i], "--solver") == 0) {
+            useSolver = true;
         } else if (strcmp(argv[i], "--baselines") == 0) {
             useBaselines = true;
         } else if (strcmp(argv[i], "--baseline-method") == 0 && i + 1 < argc) {
             useBaselines = true;
             baselineMethod = argv[++i];
-        } else if (strcmp(argv[i], "--compare") == 0) {
-            compareMode = true;
-        } else if (strcmp(argv[i], "--no-diffusion") == 0) {
-            enableDiffusion = false;
         } else if (strcmp(argv[i], "--quiet") == 0) {
             verbose = false;
         } else if (strcmp(argv[i], "--print-schedule") == 0) {
@@ -1352,65 +1039,34 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Error: path_weight_data must be non-negative" << std::endl;
                 return 1;
             }
-        } else if (strcmp(argv[i], "--strategy") == 0 && i + 1 < argc) {
-            forceStrategy = true;
-            std::string strategyName = argv[++i];
-            if (strategyName == "dimension_order") {
-                forcedStrategy = RoutingStrategy::DIMENSION_ORDER;
-            } else if (strategyName == "load_balanced") {
-                forcedStrategy = RoutingStrategy::LOAD_BALANCED;
-            } else if (strategyName == "multi_path") {
-                forcedStrategy = RoutingStrategy::MULTI_PATH;
-            } else if (strategyName == "adaptive") {
-                forcedStrategy = RoutingStrategy::ADAPTIVE;
-            } else {
-                std::cerr << "Unknown strategy: " << strategyName << std::endl;
-                return 1;
-            }
         } else if (std::strncmp(argv[i], "mode=", 5) == 0) {
             const char* modeStr = argv[i] + 5;
             if (std::strcmp(modeStr, "clean") == 0) {
                 cleanMode = true;
-                solver4CleanMode = true;
                 standardMode = false;
                 speedMode = false;
             } else if (std::strcmp(modeStr, "complete") == 0) {
                 cleanMode = false;
-                solver4CleanMode = false;
                 standardMode = false;
                 speedMode = false;
             } else if (std::strcmp(modeStr, "standard") == 0) {
                 cleanMode = true;
-                solver4CleanMode = true;
                 standardMode = true;
                 speedMode = false;
             } else if (std::strcmp(modeStr, "speed") == 0) {
                 cleanMode = true;
-                solver4CleanMode = true;
                 standardMode = true;
                 speedMode = true;
             } else {
                 std::cerr << "Unknown mode: " << modeStr << std::endl;
                 return 1;
             }
-        } else if (strcmp(argv[i], "true") == 0 || strcmp(argv[i], "1") == 0) {
-            // Legacy multithread option support
-            multithread = true;
-            if (i + 1 < argc) {
-                output_dir = argv[++i];
-            } else {
-                std::cerr << "Error: Output directory must be specified when multithread is enabled" << std::endl;
-                return 1;
-            }
-        } else if (argv[i][0] != '-' && multithread && output_dir.empty()) {
-            output_dir = argv[i];
+        } else {
+            std::cerr << "Unknown option: " << argv[i] << std::endl;
+            return 1;
         }
     }
 
-    if (multithread && output_dir.empty()) {
-        std::cerr << "Error: Output directory must be specified when multithread is enabled" << std::endl;
-        return 1;
-    }
     if (standardPathWeightSum + standardPathWeightMax + standardPathWeightData <= 0.0) {
         std::cerr << "Error: at least one path score weight must be positive" << std::endl;
         return 1;
@@ -1431,10 +1087,10 @@ int main(int argc, char* argv[]) {
     try {
         std::string topologyType = topoConfig["topology"].get<std::string>();
         const auto shape = topoConfig["shape"].get<std::vector<int>>();
-        const bool useSyntheticSolver3Demand =
-            useSolver3 && collConfig.contains("synthetic_v_datasize");
-        const bool lightweightDirectSolver3 =
-            useSyntheticSolver3Demand &&
+        const bool useSyntheticSolverDemand =
+            useSolver && collConfig.contains("synthetic_v_datasize");
+        const bool lightweightDirectSolver =
+            useSyntheticSolverDemand &&
             (topologyType == "mesh" || topologyType == "torus" || topologyType == "fullmesh");
 
         std::shared_ptr<Topology> topology;
@@ -1443,7 +1099,7 @@ int main(int argc, char* argv[]) {
         std::shared_ptr<Collective> collective;
         long long chunkSize = 0;
 
-        if (lightweightDirectSolver3) {
+        if (lightweightDirectSolver) {
             collectiveNpusCount = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
         } else {
             auto topologyWithFaults = createTopologyWithFaults(topoConfig);
@@ -1457,7 +1113,7 @@ int main(int argc, char* argv[]) {
                 collectiveNpusCount = topology->npusCount();
             }
 
-            if (!useSyntheticSolver3Demand) {
+            if (!useSyntheticSolverDemand) {
                 auto collectiveWithChunkSize = createCollectiveWithChunkSize(collConfig, collectiveNpusCount);
                 collective = collectiveWithChunkSize.first;
                 chunkSize = collectiveWithChunkSize.second;
@@ -1466,122 +1122,11 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // ============================================================
-        // Solver2 mode: Use Synthesizer2 (unified solver for non-uniform AllToAll)
-        // ============================================================
-        if (useSolver2) {
-            std::string topologyType = topoConfig["topology"].get<std::string>();
-            if (!collConfig.contains("v_datasize")) {
-                std::cerr << "Error: Synthesizer2 requires v_datasize (CSV file) in collective config" << std::endl;
-                return 1;
-            }
-
-            auto shape = topoConfig["shape"].get<std::vector<int>>();
-            auto bandwidth = topoConfig["bandwidth"].get<std::vector<double>>();
-            auto latency = topoConfig["latency"].get<std::vector<double>>();
-            bool isTorus = (topologyType == "torus");
-
-            // Parse demand matrix from CSV
-            // For switch-based topologies, CSV only contains GPU nodes, not switches
-            std::string csvPath = collConfig["v_datasize"].get<std::string>();
-            int expectedNpus;
-            if (topologyType == "fat-tree" || topologyType == "rail-optimized" || topologyType == "cm" || topologyType == "cm384") {
-                // For switch topologies, calculate GPU count from shape
-                expectedNpus = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
-            } else {
-                // For direct-connect topologies, use total node count
-                expectedNpus = topology->npusCount();
-            }
-            auto dataMatrix = parseVariableDatasizeCSV(
-                csvPath, expectedNpus, getBlockBytes(collConfig));
-
-            // Create and configure Synthesizer2
-            Synthesizer2 solver2 = (topologyType == "fat-tree" || topologyType == "rail-optimized" || topologyType == "cm" || topologyType == "cm384") ?
-                Synthesizer2(topology, shape, bandwidth[0], latency[0]) :
-                Synthesizer2(shape, isTorus, bandwidth[0], latency[0]);
-            solver2.setVerbose(verbose);
-            solver2.setPrintSchedule(printSchedule);
-            solver2.setEnableDiffusion(enableDiffusion);
-            if (forceStrategy) {
-                solver2.setRoutingStrategy(forcedStrategy);
-            }
-
-            auto timer = Timer();
-
-            if (compareMode) {
-                // Compare different strategies
-                timer.start();
-                solver2.compareStrategies(dataMatrix);
-                timer.stop();
-                std::cout << "\nComparison Time: " << timer.time() << " us\n";
-            } else {
-                // Normal solve with chunk-based output (similar to original solver)
-                timer.start();
-                auto chunkResult = solver2.solveWithChunks(dataMatrix, chunkSize);
-                timer.stop();
-
-                // Print Precondition and Postcondition (similar to original solver)
-                chunkResult.printPrecondition();
-                chunkResult.printPostcondition();
-
-                // Print topology and collective info header
-                std::cout << "[Glaive Collective Synthesizer]" << std::endl;
-                std::cout << "########################################################" << std::endl;
-                std::cout << "[Topology Information]" << std::endl;
-                std::cout << "\t- Topology: " << topologyType << std::endl;
-                std::cout << "\t- NPUs Count: " << topology->npusCount() << std::endl;
-                std::cout << "\t- Dimension: " << shape.size() << std::endl;
-                std::cout << "\t- Shape: [";
-                for (size_t i = 0; i < shape.size(); ++i) {
-                    std::cout << shape[i] << (i + 1 < shape.size() ? ", " : "]\n");
-                }
-                std::cout << "\t- Latency per dimension (ns): [";
-                for (size_t i = 0; i < latency.size(); ++i) {
-                    std::cout << latency[i] << (i + 1 < latency.size() ? ", " : "]\n");
-                }
-                std::cout << "\t- Bandwidth per dimension (GB/s): [";
-                for (size_t i = 0; i < bandwidth.size(); ++i) {
-                    std::cout << bandwidth[i] << (i + 1 < bandwidth.size() ? ", " : "]\n");
-                }
-                std::cout << "########################################################" << std::endl;
-                std::cout << "[Collective Information]" << std::endl;
-                std::cout << "\t- Collective: " << collConfig["collective"].get<std::string>() << std::endl;
-                std::cout << "\t- Chunks Count: " << chunkResult.totalChunks << std::endl;
-                std::cout << "\t- Chunk Size: " << chunkSize << " B";
-                std::cout << " (" << (chunkSize / (1 << 20)) << " MB)" << std::endl;
-                int chunkfactor = collConfig.contains("chunkfactor") ? collConfig["chunkfactor"].get<int>() : 1;
-                std::cout << "\t- Chunk Factor = " << chunkfactor << std::endl;
-                std::cout << "########################################################" << std::endl;
-
-                // Print postconditions list
-                chunkResult.printPostconditionsList();
-
-                // Print transfer events (similar to original solver format)
-                for (const auto& event : chunkResult.transferEvents) {
-                    // Find the chunk's destination
-                    int chunkDst = chunkResult.chunks[event.chunkId].dstNpu;
-                    std::cout << "Current [chunk, dest]: " << event.chunkId << ", " << chunkDst << std::endl;
-                    std::cout << std::fixed << std::setprecision(6)
-                              << "[EventTime " << event.eventTime << " us] Chunk "
-                              << event.chunkId << ": " << event.fromNpu << " -> " << event.toNpu << std::endl;
-                }
-
-                std::cout << "\n[Performance Summary]" << std::endl;
-                std::cout << "  Solver Time: " << std::fixed << std::setprecision(2)
-                          << timer.time() << " us" << std::endl;
-                std::cout << "  Makespan: " << chunkResult.makespan << " us" << std::endl;
-            }
-
-            std::cout << "\n[TACOS Solver2] Done!" << std::endl;
-
-        // ============================================================
-        // Solver3 mode: Use Synthesizer3 (profiling-scheduling-fusion workflow)
-        // ============================================================
-        } else if (useSolver3) {
+        if (useSolver) {
             std::string topologyType = topoConfig["topology"].get<std::string>();
             const bool useSyntheticDemand = collConfig.contains("synthetic_v_datasize");
             if (!collConfig.contains("v_datasize") && !useSyntheticDemand) {
-                std::cerr << "Error: Synthesizer3 requires either v_datasize (CSV file) or synthetic_v_datasize in collective config" << std::endl;
+                std::cerr << "Error: Synthesizer requires either v_datasize (CSV file) or synthetic_v_datasize in collective config" << std::endl;
                 return 1;
             }
 
@@ -1599,7 +1144,7 @@ int main(int argc, char* argv[]) {
             }
 
             std::vector<std::vector<long long>> dataMatrix;
-            std::vector<DemandEntry3> sparseDemand;
+            std::vector<DemandEntry> sparseDemand;
             if (useSyntheticDemand) {
                 sparseDemand = generateSyntheticDemandFlows(
                     collConfig["synthetic_v_datasize"], shape, topologyType, expectedNpus,
@@ -1614,32 +1159,32 @@ int main(int argc, char* argv[]) {
                 : computeDenseDemandStats(dataMatrix);
             printDemandStats(demandStats);
 
-            auto createSolver3 = [&]() {
+            auto createSolver = [&]() {
                 if (topologyType == "mesh") {
-                    return Synthesizer3(shape, Synthesizer3::DirectTopologyKind::Mesh, bandwidth[0], latency[0]);
+                    return Synthesizer(shape, Synthesizer::DirectTopologyKind::Mesh, bandwidth[0], latency[0]);
                 }
                 if (topologyType == "torus") {
-                    return Synthesizer3(shape, Synthesizer3::DirectTopologyKind::Torus, bandwidth[0], latency[0]);
+                    return Synthesizer(shape, Synthesizer::DirectTopologyKind::Torus, bandwidth[0], latency[0]);
                 }
                 if (topologyType == "fullmesh") {
-                    return Synthesizer3(shape, Synthesizer3::DirectTopologyKind::FullMesh, bandwidth[0], latency[0]);
+                    return Synthesizer(shape, Synthesizer::DirectTopologyKind::FullMesh, bandwidth[0], latency[0]);
                 }
-                return Synthesizer3(topology, shape, bandwidth[0], latency[0]);
+                return Synthesizer(topology, shape, bandwidth[0], latency[0]);
             };
 
             if (standardMode) {
                 auto createStandardSolver = [&]() {
                     StandardSynthesizer solver = [&]() {
                     if (topologyType == "mesh") {
-                        return StandardSynthesizer(shape, Synthesizer3::DirectTopologyKind::Mesh,
+                        return StandardSynthesizer(shape, Synthesizer::DirectTopologyKind::Mesh,
                                                  bandwidth[0], latency[0]);
                     }
                     if (topologyType == "torus") {
-                        return StandardSynthesizer(shape, Synthesizer3::DirectTopologyKind::Torus,
+                        return StandardSynthesizer(shape, Synthesizer::DirectTopologyKind::Torus,
                                                  bandwidth[0], latency[0]);
                     }
                     if (topologyType == "fullmesh") {
-                        return StandardSynthesizer(shape, Synthesizer3::DirectTopologyKind::FullMesh,
+                        return StandardSynthesizer(shape, Synthesizer::DirectTopologyKind::FullMesh,
                                                  bandwidth[0], latency[0]);
                     }
                     return StandardSynthesizer(topology, shape, bandwidth[0], latency[0]);
@@ -1775,32 +1320,32 @@ int main(int argc, char* argv[]) {
                     printSpeedEvents(standardResult.events);
                 }
 
-                std::cout << "\n[TACOS Solver3] Done!" << std::endl;
+                std::cout << "\n[TACOS Solver] Done!" << std::endl;
                 return 0;
             }
 
-            Synthesizer3 solver3 = createSolver3();
+            Synthesizer solver = createSolver();
             if (cleanMode) {
-                solver3.setVerbose(false);
-                solver3.setPrintSchedule(printSchedule);
-                solver3.setCleanMode(true);
+                solver.setVerbose(false);
+                solver.setPrintSchedule(printSchedule);
+                solver.setCleanMode(true);
             } else {
-                solver3.setVerbose(verbose);
-                solver3.setPrintSchedule(printSchedule);
+                solver.setVerbose(verbose);
+                solver.setPrintSchedule(printSchedule);
             }
 
             auto timer = Timer();
 
             timer.start();
-            auto makespan = useSyntheticDemand ? solver3.solveSparse(sparseDemand)
-                                               : solver3.solve(dataMatrix);
+            auto makespan = useSyntheticDemand ? solver.solveSparse(sparseDemand)
+                                               : solver.solve(dataMatrix);
             timer.stop();
 
-            const auto& profilingResult = solver3.getProfilingResult();
-            const auto& scheduleResult = solver3.getScheduleResult();
+            const auto& profilingResult = solver.getProfilingResult();
+            const auto& scheduleResult = solver.getScheduleResult();
 
             if (!cleanMode) {
-                std::cout << "[Glaive Collective Synthesizer - Synthesizer3]" << std::endl;
+                std::cout << "[Glaive Collective Synthesizer]" << std::endl;
                 std::cout << "########################################################" << std::endl;
                 std::cout << "[Topology Information]" << std::endl;
                 std::cout << "\t- Topology: " << topologyType << std::endl;
@@ -1838,112 +1383,8 @@ int main(int argc, char* argv[]) {
             }
             std::cout << "  Total Makespan: " << makespan << " us" << std::endl;
 
-            std::cout << "\n[TACOS Solver3] Done!" << std::endl;
+            std::cout << "\n[TACOS Solver] Done!" << std::endl;
 
-        // ============================================================
-        // Solver4 mode: Use Synthesizer4 (hotspot-based matrix decomposition)
-        // ============================================================
-        } else if (useSolver4) {
-            std::string topologyType = topoConfig["topology"].get<std::string>();
-            if (!collConfig.contains("v_datasize")) {
-                std::cerr << "Error: Synthesizer4 requires v_datasize (CSV file) in collective config" << std::endl;
-                return 1;
-            }
-
-            auto shape = topoConfig["shape"].get<std::vector<int>>();
-            auto bandwidth = topoConfig["bandwidth"].get<std::vector<double>>();
-            auto latency = topoConfig["latency"].get<std::vector<double>>();
-            bool isTorus = (topologyType == "torus");
-
-            // Parse demand matrix from CSV
-            // For switch-based topologies, CSV only contains GPU nodes, not switches
-            std::string csvPath = collConfig["v_datasize"].get<std::string>();
-            int expectedNpus;
-            if (topologyType == "fat-tree" || topologyType == "rail-optimized" || topologyType == "cm" || topologyType == "cm384") {
-                // For switch topologies, calculate GPU count from shape
-                expectedNpus = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
-            } else {
-                // For direct-connect topologies, use total node count
-                expectedNpus = topology->npusCount();
-            }
-            auto dataMatrix = parseVariableDatasizeCSV(
-                csvPath, expectedNpus, getBlockBytes(collConfig));
-
-            // Create and configure Synthesizer4
-            Synthesizer4 solver4 = (topologyType == "fat-tree" || topologyType == "rail-optimized" || topologyType == "cm" || topologyType == "cm384") ?
-                Synthesizer4(topology, shape, bandwidth[0], latency[0]) :
-                Synthesizer4(shape, isTorus, bandwidth[0], latency[0]);
-            // In clean mode, suppress internal verbose/schedule prints and enable clean workflow
-            if (solver4CleanMode) {
-                solver4.setVerbose(false);
-                solver4.setPrintSchedule(false);
-                solver4.setCleanMode(true);
-            } else {
-                solver4.setVerbose(verbose);
-                solver4.setPrintSchedule(printSchedule);
-            }
-
-            auto timer = Timer();
-
-            // Normal solve
-            timer.start();
-            auto makespan = solver4.solve(dataMatrix);
-            timer.stop();
-
-            // Get profiling and schedule results
-            const auto& profilingResult = solver4.getProfilingResult();
-            const auto& scheduleResult = solver4.getScheduleResult();
-
-            if (!solver4CleanMode) {
-                // Print topology and collective info header (complete mode)
-                std::cout << "[Glaive Collective Synthesizer - Synthesizer4]" << std::endl;
-                std::cout << "########################################################" << std::endl;
-                std::cout << "[Topology Information]" << std::endl;
-                std::cout << "\t- Topology: " << topologyType << std::endl;
-                std::cout << "\t- NPUs Count: " << topology->npusCount() << std::endl;
-                std::cout << "\t- Dimension: " << shape.size() << std::endl;
-                std::cout << "\t- Shape: [";
-                for (size_t i = 0; i < shape.size(); ++i) {
-                    std::cout << shape[i] << (i + 1 < shape.size() ? ", " : "]\n");
-                }
-                std::cout << "\t- Latency per dimension (ns): [";
-                for (size_t i = 0; i < latency.size(); ++i) {
-                    std::cout << latency[i] << (i + 1 < latency.size() ? ", " : "]\n");
-                }
-                std::cout << "\t- Bandwidth per dimension (GB/s): [";
-                for (size_t i = 0; i < bandwidth.size(); ++i) {
-                    std::cout << bandwidth[i] << (i + 1 < bandwidth.size() ? ", " : "]\n");
-                }
-                std::cout << "########################################################" << std::endl;
-                std::cout << "[Collective Information]" << std::endl;
-                std::cout << "\t- Collective: " << collConfig["collective"].get<std::string>() << std::endl;
-                int chunkfactor = collConfig.contains("chunkfactor") ? collConfig["chunkfactor"].get<int>() : 1;
-                std::cout << "\t- Chunk Factor = " << chunkfactor << std::endl;
-                std::cout << "########################################################" << std::endl;
-
-                // Profiling result is already printed by solver4 if verbose
-                // Schedule result summary is already printed by solver4 if verbose
-            }
-
-            // In both modes, print step-4 fused scheduling events (per-hop schedule)
-            // scheduleResult.events has been set to fusedSchedulingEvents inside Synthesizer4::solve
-            scheduleResult.printEvents();
-
-            std::cout << "\n[Performance Summary]" << std::endl;
-            std::cout << "  Solver Time: " << std::fixed << std::setprecision(2)
-                      << timer.time() << " us" << std::endl;
-            if (!solver4CleanMode) {
-                std::cout << "  Regular Matrix Makespan: " << scheduleResult.regularMatrixMakespan << " us" << std::endl;
-                std::cout << "  Hotspot Matrix Makespan: " << scheduleResult.hotspotMatrixMakespan << " us" << std::endl;
-                std::cout << "  Fused Makespan: " << scheduleResult.fusedMakespan << " us" << std::endl;
-            }
-            std::cout << "  Total Makespan: " << makespan << " us" << std::endl;
-
-            std::cout << "\n[TACOS Solver4] Done!" << std::endl;
-
-        // ============================================================
-        // Baselines mode: Run Bruck and Spreadout algorithms
-        // ============================================================
         } else if (useBaselines) {
             std::string topologyType = topoConfig["topology"].get<std::string>();
             
@@ -2303,210 +1744,11 @@ int main(int argc, char* argv[]) {
             std::cout << "########################################################" << std::endl;
             std::cout << "[TACOS Baselines] Done!" << std::endl;
 
-        // ============================================================
-        // Multithread mode: Run original synthesizer with multiple threads
-        // ============================================================
-        } else if (multithread) {
-            // Create output directory if it doesn't exist
-            std::filesystem::create_directories(output_dir);
-
-            int thread_num = 32;
-            std::cout << "[TACOS] Running in multithread mode with " << thread_num << " threads" << std::endl;
-            std::cout << "Output directory: " << output_dir << std::endl;
-
-            std::vector<std::thread> threads;
-            std::vector<ThreadResult> results;
-            std::mutex results_mutex;
-            std::atomic<int> completed_threads{0};
-            auto main_timer = Timer();
-
-            // Start timer and launch threads
-            main_timer.start();
-
-            for (int i = 0; i < thread_num; ++i) {
-                threads.emplace_back(runSynthesizerThread, i, topology, collective, chunkSize,
-                                   topoConfig, collConfig, output_dir, faultInfo,
-                                   std::ref(results), std::ref(results_mutex), std::ref(completed_threads));
-            }
-
-            // Wait for all threads to complete
-            for (auto& thread : threads) {
-                thread.join();
-            }
-            main_timer.stop();
-
-            std::cout << "All threads completed. Parsing log files for final results..." << std::endl;
-
-            // Parse all log files to get complete results
-            results.clear();
-            parseLogFiles(output_dir, results, thread_num);
-
-            // Find best results
-            if (!results.empty()) {
-                auto max_solve_time = std::max_element(results.begin(), results.end(),
-                    [](const ThreadResult& a, const ThreadResult& b) { return a.solve_time < b.solve_time; });
-
-                auto min_collective_time = std::min_element(results.begin(), results.end(),
-                    [](const ThreadResult& a, const ThreadResult& b) { return a.collective_time < b.collective_time; });
-
-                std::cout << "########################################################" << std::endl;
-                std::cout << "[MULTITHREAD SUMMARY]" << std::endl;
-                std::cout << "Total execution time: " << main_timer.time() << " us" << std::endl;
-                std::cout << "Number of completed threads: " << results.size() << "/" << thread_num << std::endl;
-                std::cout << "Longest solve time: " << max_solve_time->solve_time << " us" << std::endl;
-                std::cout << "  (File: " << max_solve_time->filename << ", Thread: " << (max_solve_time->thread_id + 1) << ")" << std::endl;
-                std::cout << "Best collective time: " << min_collective_time->collective_time << " us" << std::endl;
-                std::cout << "  (File: " << min_collective_time->filename << ", Thread: " << (min_collective_time->thread_id + 1) << ")" << std::endl;
-                std::cout << "########################################################" << std::endl;
-            } else {
-                std::cerr << "Error: No valid results found from any thread" << std::endl;
-                return 1;
-            }
-
-        // ============================================================
-        // Single-threaded mode: Original synthesizer behavior
-        // ============================================================
         } else {
-            // Single-threaded mode - original behavior
-            auto synthesizerTimer = Timer();
-            
-            // Print header
-            std::cout << "[Glaive Collective Synthesizer]" << std::endl;
-            std::cout << "########################################################" << std::endl;
-            
-            // Print topology info
-            const auto npusCount = topology->npusCount();
-            std::cout << "[Topology Information]" << std::endl;
-            std::cout << "\t- Topology: " << topoConfig["topology"].get<std::string>() << std::endl;
-            std::cout << "\t- NPUs Count: " << topology->npusCount() << std::endl;
-            if (topoConfig.contains("shape")) {
-                auto shape = topoConfig["shape"].get<std::vector<int>>();
-                std::cout << "\t- Dimension: " << shape.size() << std::endl;
-                std::cout << "\t- Shape: [";
-                for (size_t i = 0; i < shape.size(); ++i) {
-                    std::cout << shape[i] << (i + 1 < shape.size() ? ", " : "]\n");
-                }
-            }
-            if (topoConfig.contains("latency")) {
-                auto latency = topoConfig["latency"].get<std::vector<double>>();
-                std::cout << "\t- Latency per dimension (ns): [";
-                for (size_t i = 0; i < latency.size(); ++i) {
-                    std::cout << latency[i] << (i + 1 < latency.size() ? ", " : "]\n");
-                }
-            }
-            if (topoConfig.contains("bandwidth")) {
-                auto bandwidth = topoConfig["bandwidth"].get<std::vector<double>>();
-                std::cout << "\t- Bandwidth per dimension (GB/s): [";
-                for (size_t i = 0; i < bandwidth.size(); ++i) {
-                    std::cout << bandwidth[i] << (i + 1 < bandwidth.size() ? ", " : "]\n");
-                }
-            }
-            // Print link fault information
-            if (!faultInfo.linkFaultInfos.empty()) {
-                std::cout << "\t- Link Faults (coordinate format): ";
-                for (size_t i = 0; i < faultInfo.linkFaultInfos.size(); ++i) {
-                    std::cout << faultInfo.linkFaultInfos[i].coordStr;
-                    if (i + 1 < faultInfo.linkFaultInfos.size()) {
-                        std::cout << ", ";
-                    }
-                }
-                std::cout << std::endl;
-                std::cout << "\t- Link Faults (NpuID format): ";
-                for (size_t i = 0; i < faultInfo.linkFaultInfos.size(); ++i) {
-                    std::cout << faultInfo.linkFaultInfos[i].npu1 << "-" << faultInfo.linkFaultInfos[i].npu2;
-                    if (i + 1 < faultInfo.linkFaultInfos.size()) {
-                        std::cout << ", ";
-                    }
-                }
-                std::cout << std::endl;
-            }
-            // Print node fault information
-            if (!faultInfo.nodeFaultInfos.empty()) {
-                std::cout << "\t- Node Faults (coordinate format): ";
-                for (size_t i = 0; i < faultInfo.nodeFaultInfos.size(); ++i) {
-                    std::cout << faultInfo.nodeFaultInfos[i].coordStr;
-                    if (i + 1 < faultInfo.nodeFaultInfos.size()) {
-                        std::cout << ", ";
-                    }
-                }
-                std::cout << std::endl;
-                std::cout << "\t- Node Faults (NpuID format): ";
-                for (size_t i = 0; i < faultInfo.nodeFaultInfos.size(); ++i) {
-                    std::cout << faultInfo.nodeFaultInfos[i].npuID;
-                    if (i + 1 < faultInfo.nodeFaultInfos.size()) {
-                        std::cout << ", ";
-                    }
-                }
-                std::cout << std::endl;
-            }
-            // Print straggler information
-            if (!faultInfo.stragglerInfos.empty()) {
-                std::cout << "\t- Stragglers (coordinate format): ";
-                for (size_t i = 0; i < faultInfo.stragglerInfos.size(); ++i) {
-                    std::cout << faultInfo.stragglerInfos[i].coordStr << " [BW:" 
-                              << faultInfo.stragglerInfos[i].bandwidth << ", Lat:" 
-                              << faultInfo.stragglerInfos[i].latency << "]";
-                    if (i + 1 < faultInfo.stragglerInfos.size()) {
-                        std::cout << ", ";
-                    }
-                }
-                std::cout << std::endl;
-                std::cout << "\t- Stragglers (NpuID format): ";
-                for (size_t i = 0; i < faultInfo.stragglerInfos.size(); ++i) {
-                    std::cout << faultInfo.stragglerInfos[i].npuID << " [BW:" 
-                              << faultInfo.stragglerInfos[i].bandwidth << ", Lat:" 
-                              << faultInfo.stragglerInfos[i].latency << "]";
-                    if (i + 1 < faultInfo.stragglerInfos.size()) {
-                        std::cout << ", ";
-                    }
-                }
-                std::cout << std::endl;
-            }
-            
-            // Print collective info
-            const auto chunkSizeMB = chunkSize / (1 << 20);
-            std::cout << "########################################################" << std::endl;
-            std::cout << "[Collective Information]" << std::endl;
-            std::cout << "\t- Collective: " << collConfig["collective"].get<std::string>() << std::endl;
-            std::cout << "\t- Chunks Count: " << collective->chunksCount() << std::endl;
-            std::cout << "\t- Chunk Size: " << chunkSize << " B";
-            std::cout << " (" << chunkSizeMB << " MB)" << std::endl;
-            std::cout << "\t- Chunk Factor = " << collective->getChunkFactor() << std::endl;
-            std::cout << "########################################################" << std::endl;
-            if (collConfig.contains("v_datasize")) {
-                int collectiveNpusForDemand;
-                const std::string topologyTypeForDemand = topoConfig["topology"].get<std::string>();
-                if (topologyTypeForDemand == "fat-tree" || topologyTypeForDemand == "rail-optimized" ||
-                    topologyTypeForDemand == "cm" || topologyTypeForDemand == "cm384") {
-                    auto demandShape = topoConfig["shape"].get<std::vector<int>>();
-                    collectiveNpusForDemand = std::accumulate(demandShape.begin(), demandShape.end(), 1,
-                                                              std::multiplies<int>());
-                } else {
-                    collectiveNpusForDemand = topology->npusCount();
-                }
-                auto demandMatrixForSummary = parseVariableDatasizeCSV(
-                    collConfig["v_datasize"].get<std::string>(),
-                    collectiveNpusForDemand,
-                    getBlockBytes(collConfig));
-                printDemandStats(computeDenseDemandStats(demandMatrixForSummary));
-            }
-            
-            // Run synthesizer
-            synthesizerTimer.start();
-            auto synthesizer = Synthesizer();
-            auto collectiveTime = synthesizer.solve(topology, collective, chunkSize);
-            synthesizerTimer.stop();
-            
-            // Print results
-            auto time = synthesizerTimer.time();
-            const auto timeSec = time / 1e6;
-            std::cout << "Time to solve: " << time << " us";
-            std::cout << " (" << timeSec << " s)" << std::endl;
-            std::cout << "Collective Time: " << collectiveTime << " us" << std::endl;
-            std::cout << "########################################################" << std::endl;
-            std::cout << "[TACOS] Done!" << std::endl;
+            std::cerr << "Error: select --solver or a baseline method" << std::endl;
+            return 1;
         }
-        
+
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
@@ -2514,6 +1756,3 @@ int main(int argc, char* argv[]) {
     
     return 0;
 }
-
-
-

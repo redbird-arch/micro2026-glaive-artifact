@@ -188,7 +188,7 @@ def cache_scale_tasks(repo_root: Path) -> list[Task]:
                     name=f"opt3_cache_scale::{topology_type}::{n}",
                     topology_json=topo,
                     collective_json=coll,
-                    args=("--solver3", "mode=standard"),
+                    args=("--solver", "mode=standard"),
                     log_path=repo_root / "evaluation_assets" / "raw_logs" / "standard_cache" / "scale" / topology_type / f"{stem}.log",
                     stage="standard_cache",
                 )
@@ -212,7 +212,7 @@ def cache_data_volume_tasks(repo_root: Path) -> list[Task]:
                     name=f"opt3_cache_data_volume::{topology_type}::{n}::{block_bytes}",
                     topology_json=topo,
                     collective_json=coll,
-                    args=("--solver3", "mode=standard"),
+                    args=("--solver", "mode=standard"),
                     log_path=repo_root / "evaluation_assets" / "raw_logs" / "standard_cache" / "data_volume" / topology_type / f"{stem}.log",
                     stage="standard_cache",
                 )
@@ -292,7 +292,7 @@ def build_scalability_cache_rows(repo_root: Path) -> list[dict[str, Any]]:
             name=f"scalability_cache::{case['topology_type']}::{stem}",
             topology_json=str(case["topology_json"]),
             collective_json=str(case["collective_json"]),
-            args=("--solver3", "mode=standard"),
+            args=("--solver", "mode=standard"),
             log_path=log_path,
             stage="standard_scalability",
         )
@@ -509,7 +509,7 @@ def speed_link_tasks(repo_root: Path) -> list[Task]:
                 name=f"speed_link::{topology_key}::layer1_group0_256MB",
                 topology_json=str(topologies[topology_key]["topology_json"]),
                 collective_json=collective,
-                args=("--solver3", "mode=speed"),
+                args=("--solver", "mode=speed"),
                 log_path=repo_root / "evaluation_assets" / "raw_logs" / "speed" / f"{topology_key}_layer1_group0_256MB.log",
                 stage="speed",
             )
@@ -1088,7 +1088,7 @@ def figure9_tasks(repo_root: Path) -> list[Task]:
                 name=f"figure9_standard::{devices}::{row['case_id']}",
                 topology_json=topology_json,
                 collective_json=collective_json,
-                args=("--solver3", "mode=standard"),
+                args=("--solver", "mode=standard"),
                 log_path=repo_root / "evaluation_assets" / "raw_logs" / "speed_breakeven" / "figure9_h100_clos" / f"{devices}devices" / f"{row['case_id']}.log",
                 stage="speed_breakeven",
             )

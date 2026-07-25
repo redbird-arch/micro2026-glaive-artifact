@@ -53,8 +53,6 @@ void AllToAll::process_max_count() {
   if (remained_packets_per_max_count == 0) {
     max_count--;
     if (id == 0) {
-      // std::cout<<"max count is now: "<<max_count<<"stream count is:
-      // "<<stream_count<<" , free_packets: "<<free_packets<<std::endl;
     }
     release_packets();
     remained_packets_per_max_count = 1;

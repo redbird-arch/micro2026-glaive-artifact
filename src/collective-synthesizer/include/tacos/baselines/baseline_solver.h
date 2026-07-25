@@ -12,7 +12,6 @@ Copyright (c) 2022-2025 Georgia Institute of Technology
 #include <vector>
 #include <tacos/topology/topology.h>
 #include <tacos/event_queue/event_queue.h>
-#include <tacos/synthesizer/time_expanded_network.h>
 
 namespace tacos {
 
@@ -81,4 +80,3 @@ class BaselineSolver {
 };
 
 }  // namespace tacos
-
