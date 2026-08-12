@@ -112,6 +112,14 @@ Before execution:
 .venv/bin/python scripts/verify_artifact.py
 ```
 
+This source check ignores `.venv/` and `runs/`, so it can be repeated while an
+experiment is in progress or before resuming the same `GLAIVE_RUN_DIR`. For a
+release archive, also require generated directories to be absent or empty:
+
+```bash
+.venv/bin/python scripts/verify_artifact.py --check-packaging-clean
+```
+
 After execution:
 
 ```bash

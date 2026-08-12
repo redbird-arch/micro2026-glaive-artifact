@@ -82,6 +82,9 @@ Glaive_AE/
 │   │   │   ├── scripts/               experiment runners, parsers, and plots
 │   │   │   └── parsed/figure9_h100_glaive_reference.csv
 │   │   │       └── measured timing input used by Figure 16
+│   │   ├── utils/
+│   │   │   └── run_olmoe64_selected_batch.py
+│   │   │       └── Figure 12 collective solver and baseline driver
 │   │   └── libs/                       bundled C++ dependencies
 │   └── astra-sim-galois/
 │       ├── astra-sim/                  ASTRA-Sim core
@@ -185,6 +188,10 @@ directory can be selected with:
 GLAIVE_RUN_DIR=$PWD/runs/my_run bash run_all.sh
 ```
 
+The same `GLAIVE_RUN_DIR` may be supplied again after an interrupted run.
+Pre-run verification ignores `.venv/` and partial contents under `runs/`, and
+completed experiment outputs are reused by the corresponding stage runners.
+
 ## Figure-to-Output Mapping
 
 All final paths below are relative to `runs/ae_<timestamp>/figures/`.
@@ -255,10 +262,19 @@ the CPU solver and analytical simulator.
 
 ## Verification
 
-Verify a clean source tree before running:
+Verify the required source inputs before or during a run:
 
 ```bash
 .venv/bin/python scripts/verify_artifact.py
+```
+
+The default check intentionally ignores the generated `.venv/` and `runs/`
+directories so that interrupted runs can be resumed. Before creating a release
+archive, additionally check that those generated directories are empty or
+absent:
+
+```bash
+.venv/bin/python scripts/verify_artifact.py --check-packaging-clean
 ```
 
 Verify a completed run:

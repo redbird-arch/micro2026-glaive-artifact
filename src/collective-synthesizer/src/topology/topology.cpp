@@ -21,11 +21,22 @@ void Topology::setNpusCount(const int npusCount) noexcept {
     // set npusCount
     npusCount_ = npusCount;
 
-    // allocate memory
-    connected_ = decltype(connected_)(npusCount, std::vector<bool>(npusCount, false));
-    latencies_ = decltype(latencies_)(npusCount, std::vector<Latency>(npusCount, 0));
-    bandwidths_ = decltype(bandwidths_)(npusCount, std::vector<Bandwidth>(npusCount, 0));
+    // Allocate each matrix row explicitly. This avoids a GCC 12 false-positive
+    // -Wnonnull warning in nested std::vector assignment.
+    const auto matrixSize = static_cast<std::size_t>(npusCount);
+    connected_.clear();
+    connected_.resize(matrixSize);
+    latencies_.clear();
+    latencies_.resize(matrixSize);
+    bandwidths_.clear();
+    bandwidths_.resize(matrixSize);
+    for (auto index = std::size_t{0}; index < matrixSize; ++index) {
+        connected_[index].resize(matrixSize, false);
+        latencies_[index].resize(matrixSize, 0);
+        bandwidths_[index].resize(matrixSize, 0);
+    }
 
+    backtrackMap_.clear();
     for (auto dest = 0; dest < npusCount; ++dest) {
         backtrackMap_[dest] = {};
     }

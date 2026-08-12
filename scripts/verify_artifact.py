@@ -13,6 +13,7 @@ SOURCE_REQUIRED = [
     "scripts/collect_target_figures.py",
     "scripts/run_end2end_direct.sh",
     "scripts/prepare_end2end_external_inputs.py",
+    "src/collective-synthesizer/utils/run_olmoe64_selected_batch.py",
     "src/collective-synthesizer/input/official_data",
     "src/collective-synthesizer/input/raw_data/olmoe_inf",
     "src/collective-synthesizer/evaluation_assets/manifests",
@@ -48,7 +49,7 @@ def assert_exists(path):
 def is_ignored_source_path(path):
     rel = path.relative_to(ROOT)
     parts = set(rel.parts)
-    if parts & {".git", "__pycache__", "runs", "figures"}:
+    if parts & {".git", ".venv", "__pycache__", "runs", "figures"}:
         return True
     rel_text = rel.as_posix()
     generated_build_roots = (
@@ -122,6 +123,20 @@ def check_source_tree():
         raise RuntimeError("pre-generated result/image files found:\n{}".format(formatted))
 
 
+def check_packaging_cleanliness():
+    offenders = []
+    for directory_name in (".venv", "runs"):
+        directory = ROOT / directory_name
+        if directory.exists() and any(path.is_file() for path in directory.rglob("*")):
+            offenders.append(directory_name)
+    if offenders:
+        raise RuntimeError(
+            "generated directories must be removed before packaging: {}".format(
+                ", ".join(offenders)
+            )
+        )
+
+
 def check_run_dir(run_dir, phases):
     for phase in phases:
         if phase not in RUN_REQUIRED_BY_PHASE:
@@ -143,21 +158,25 @@ def main():
         default="target",
         help="comma-separated phases to verify under --run-dir",
     )
+    parser.add_argument(
+        "--check-packaging-clean",
+        action="store_true",
+        help="also require .venv/ and runs/ to contain no generated files",
+    )
     args = parser.parse_args()
 
     check_source_tree()
+    if args.check_packaging_clean:
+        check_packaging_cleanliness()
     if args.run_dir:
         phases = [item.strip() for item in args.phases.split(",") if item.strip()]
         check_run_dir(args.run_dir.resolve(), phases)
         print("Artifact source and run outputs verified: {}".format(args.run_dir))
     else:
-        runs_root = ROOT / "runs"
-        if runs_root.exists() and any(path.is_file() for path in runs_root.rglob("*")):
-            raise RuntimeError(
-                "generated run outputs are present under runs/; "
-                "remove them before packaging"
-            )
-        print("Artifact source tree verified: inputs present and no packaged results/images found.")
+        print(
+            "Artifact source tree verified: required inputs are present; "
+            "generated environment and run directories were ignored."
+        )
 
 
 if __name__ == "__main__":
