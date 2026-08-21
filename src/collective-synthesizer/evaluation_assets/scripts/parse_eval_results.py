@@ -284,11 +284,23 @@ def build_link_rows(repo_root: Path) -> tuple[list[dict[str, object]], list[dict
                     / f"sample{case['sample_index']}.log"
                 )
                 if not log_path.exists():
-                    continue
+                    raise FileNotFoundError(
+                        "Missing Figure 7 log: "
+                        f"{log_path.relative_to(repo_root)}"
+                    )
                 makespan_us, solver_time_us = parse_log_metrics(log_path)
                 if makespan_us is None:
-                    continue
+                    raise RuntimeError(
+                        "No makespan was parsed from Figure 7 log "
+                        f"{log_path.relative_to(repo_root)}"
+                    )
                 intervals = parse_link_intervals(log_path)
+                if not any(intervals.values()):
+                    raise RuntimeError(
+                        "No link busy intervals were parsed from "
+                        f"{log_path.relative_to(repo_root)}. "
+                        "Rerun the link stage with schedule output enabled."
+                    )
                 segments = link_segments(intervals, total_links)
                 lifecycle_avg_utilization_pct = average_lifecycle_utilization_pct(segments, makespan_us)
                 row = {

@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <numeric>
 #include <queue>
 #include <set>
@@ -1904,6 +1905,35 @@ void StandardSynthesizer::printEvents(const std::vector<StandardEvent>& events) 
                   << "[EventTime " << event.startTime << " us] Chunk "
                   << event.chunkId << ": " << formatNodeName(event.src)
                   << " -> " << formatNodeName(event.dst) << '\n';
+    }
+
+    using Edge = std::pair<int, int>;
+    std::map<Edge, std::vector<std::pair<double, double>>> linkIntervals;
+    double makespan = 0.0;
+    for (const auto& event : events) {
+        linkIntervals[{event.src, event.dst}].push_back({event.startTime, event.endTime});
+        makespan = std::max(makespan, event.endTime);
+    }
+
+    std::cout << "\n[Standard Schedule] Link Busy Intervals (ns) and Utilization:\n";
+    for (auto& [edge, intervals] : linkIntervals) {
+        std::sort(intervals.begin(), intervals.end());
+        double busyTime = 0.0;
+        std::cout << "  Link(" << formatNodeName(edge.first)
+                  << "->" << formatNodeName(edge.second) << "): intervals=[";
+        for (std::size_t index = 0; index < intervals.size(); ++index) {
+            const auto& interval = intervals[index];
+            busyTime += interval.second - interval.first;
+            const auto startNs = static_cast<long long>(std::llround(interval.first * 1000.0));
+            const auto endNs = static_cast<long long>(std::llround(interval.second * 1000.0));
+            std::cout << '[' << startNs << ", " << endNs << ']';
+            if (index + 1 < intervals.size()) {
+                std::cout << ", ";
+            }
+        }
+        const double utilization = makespan > 0.0 ? 100.0 * busyTime / makespan : 0.0;
+        std::cout << "], utilization=" << std::fixed << std::setprecision(2)
+                  << utilization << "%\n";
     }
 }
 

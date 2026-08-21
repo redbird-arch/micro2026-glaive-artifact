@@ -19,6 +19,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Patch
+from matplotlib.ticker import FixedLocator, FuncFormatter
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 BASE_SPEC = importlib.util.spec_from_file_location("run_standard_studies_base", SCRIPT_DIR / "run_standard_studies.py")
@@ -55,6 +57,14 @@ CACHE_SCALE_SHAPES = {
 }
 FIGURE9_REFERENCE = Path("evaluation_assets/parsed/figure9_h100_glaive_reference.csv")
 FIGURE9_NAMESPACE = "input/generated/olmoe_h100_batch_figure9_source_railonly_20260606"
+FIGURE9_REPETITIONS = 5
+FIGURE9_REFERENCE_DEVICES = 64
+
+MAKESPAN_FILL = "#4cc9f0"
+MAKESPAN_EDGE = "#118ab2"
+SOLVER_FILL = "#80ed99"
+SOLVER_EDGE = "#06d6a0"
+FIGURE9_TEXT_COLOR = "#216869"
 
 
 def parse_args() -> argparse.Namespace:
@@ -66,6 +76,7 @@ def parse_args() -> argparse.Namespace:
         default="all",
     )
     parser.add_argument("--max-workers", type=int, default=4)
+    parser.add_argument("--figure9-repetitions", type=int, default=FIGURE9_REPETITIONS)
     parser.add_argument("--force", action="store_true")
     return parser.parse_args()
 
@@ -1076,41 +1087,69 @@ def figure9_reference_rows(repo_root: Path) -> list[dict[str, str]]:
     return rows
 
 
-def figure9_tasks(repo_root: Path) -> list[Task]:
+def figure9_tasks(repo_root: Path, repetitions: int = FIGURE9_REPETITIONS) -> list[Task]:
+    if repetitions != FIGURE9_REPETITIONS:
+        raise ValueError(
+            f"Figure 16 requires exactly {FIGURE9_REPETITIONS} synthesis-time repetitions"
+        )
     rows = figure9_reference_rows(repo_root)
     tasks: list[Task] = []
     for row in rows:
         devices = int(row["target_devices"])
         topology_json = "input/topology/h100_1node.json" if devices == 8 else "input/topology/h100_2node.json"
         collective_json = f"{FIGURE9_NAMESPACE}/collective/{row['case_id']}_{devices}devices.json"
-        tasks.append(
-            Task(
-                name=f"figure9_standard::{devices}::{row['case_id']}",
-                topology_json=topology_json,
-                collective_json=collective_json,
-                args=("--solver", "mode=standard"),
-                log_path=repo_root / "evaluation_assets" / "raw_logs" / "speed_breakeven" / "figure9_h100_clos" / f"{devices}devices" / f"{row['case_id']}.log",
-                stage="speed_breakeven",
+        for repetition in range(repetitions):
+            tasks.append(
+                Task(
+                    name=f"figure9_standard::{devices}::{row['case_id']}::rep{repetition:02d}",
+                    topology_json=topology_json,
+                    collective_json=collective_json,
+                    args=("--solver", "mode=standard"),
+                    log_path=(
+                        repo_root
+                        / "evaluation_assets"
+                        / "raw_logs"
+                        / "speed_breakeven"
+                        / "figure9_h100_clos"
+                        / f"{devices}devices"
+                        / f"{row['case_id']}_rep{repetition:02d}.log"
+                    ),
+                    stage="speed_breakeven",
+                )
             )
-        )
     return tasks
 
 
-def build_figure9_breakeven_rows(repo_root: Path) -> list[dict[str, Any]]:
+def build_figure9_breakeven_rows(
+    repo_root: Path,
+    repetitions: int = FIGURE9_REPETITIONS,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     refs = figure9_reference_rows(repo_root)
-    ref_by_key = {(int(row["target_devices"]), row["case_id"]): row for row in refs}
-    for task in figure9_tasks(repo_root):
-        _, devices_s, case_id = task.name.split("::")
+    samples: dict[tuple[int, str], list[tuple[float, dict[str, Any], Task]]] = defaultdict(list)
+    for task in figure9_tasks(repo_root, repetitions):
+        _, devices_s, case_id, _ = task.name.split("::")
         devices = int(devices_s)
-        ref = ref_by_key[(devices, case_id)]
+        if not base.task_is_complete(task.log_path):
+            continue
         metrics = base.parse_log_metrics(task.log_path)
         solver_time = metrics.get("solver_time_us")
-        if solver_time is None:
-            continue
+        if solver_time is not None:
+            samples[(devices, case_id)].append((float(solver_time), metrics, task))
+
+    for ref in refs:
+        devices = int(ref["target_devices"])
+        case_id = ref["case_id"]
+        case_samples = samples.get((devices, case_id), [])
+        if len(case_samples) != repetitions:
+            raise RuntimeError(
+                f"Figure 16 case {devices} GPU/{case_id} has "
+                f"{len(case_samples)} complete samples; expected {repetitions}"
+            )
+        solver_time, metrics, best_task = min(case_samples, key=lambda sample: sample[0])
         real_makespan_us = float(ref["real_makespan_us"])
-        total_with_solver = float(solver_time) + real_makespan_us
-        solver_share = 100.0 * float(solver_time) / total_with_solver if total_with_solver > 0 else 0.0
+        total_with_solver = solver_time + real_makespan_us
+        solver_share = 100.0 * solver_time / total_with_solver if total_with_solver > 0 else 0.0
         rows.append(
             {
                 "case_id": case_id,
@@ -1122,57 +1161,159 @@ def build_figure9_breakeven_rows(repo_root: Path) -> list[dict[str, Any]]:
                 "chunk_label": ref["chunk_label"],
                 "real_makespan_us": real_makespan_us,
                 "real_total_us": float(ref["real_total_us"]),
-                "standard_solver_time_us": float(solver_time),
+                "standard_solver_time_us": solver_time,
                 "standard_sim_makespan_us": metrics.get("total_makespan_us"),
                 "total_with_solver_us": total_with_solver,
                 "solver_share_pct": solver_share,
                 "runtime_share_pct": 100.0 - solver_share,
                 "algorithm_bytes_per_rank": int(float(ref["algorithm_bytes_per_rank"])),
                 "demand_fingerprint": metrics.get("demand_fingerprint", ""),
-                "log_path": task.log_path.relative_to(repo_root).as_posix(),
+                "log_path": best_task.log_path.relative_to(repo_root).as_posix(),
+                "sample_count": len(case_samples),
+                "min_solver_time_us": min(sample[0] for sample in case_samples),
+                "max_solver_time_us": max(sample[0] for sample in case_samples),
             }
         )
     return sorted(rows, key=lambda r: (int(r["target_devices"]), str(r["phase"]), int(r["nominal_batch_size"])))
 
 
+def figure9_selected_rows(rows: list[dict[str, Any]], devices: int) -> list[dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
+    for phase in ("decode", "prefill"):
+        phase_rows = sorted(
+            [row for row in rows if int(row["target_devices"]) == devices and row["phase"] == phase],
+            key=lambda row: int(row["nominal_batch_size"]),
+        )
+        if len(phase_rows) > 1:
+            phase_rows = phase_rows[:-1]
+        selected.extend(phase_rows)
+    return selected
+
+
 def figure9_case_label(row: dict[str, Any]) -> str:
     prefix = "D" if row["phase"] == "decode" else "P"
-    return f"{prefix}{row['nominal_batch_size']}"
+    factor = FIGURE9_REFERENCE_DEVICES // int(row["target_devices"])
+    batch_size = int(row["nominal_batch_size"]) * factor
+    if row["phase"] == "decode" and batch_size >= 1024:
+        batch_size_k = batch_size / 1024
+        return f"{prefix}-{batch_size_k:g}k"
+    return f"{prefix}-{batch_size}"
+
+
+def figure9_x_positions(rows: list[dict[str, Any]]) -> np.ndarray:
+    positions: list[float] = []
+    offset = 0.0
+    previous_phase = ""
+    for index, row in enumerate(rows):
+        if index and row["phase"] != previous_phase:
+            offset += 0.72
+        positions.append(index + offset)
+        previous_phase = row["phase"]
+    return np.asarray(positions, dtype=float)
 
 
 def plot_figure9_solver_share(rows: list[dict[str, Any]], devices: int, output_path: Path) -> None:
-    selected = [row for row in rows if int(row["target_devices"]) == devices]
+    selected = figure9_selected_rows(rows, devices)
     if not selected:
         return
-    x = np.arange(len(selected))
+    plt.rcParams.update(
+        {
+            "font.size": 11,
+            "axes.grid": True,
+            "grid.alpha": 0.28,
+            "grid.linewidth": 0.7,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+        }
+    )
+    x = figure9_x_positions(selected)
     runtime = np.array([float(row["runtime_share_pct"]) for row in selected])
     solver = np.array([float(row["solver_share_pct"]) for row in selected])
     labels = [figure9_case_label(row) for row in selected]
-    fig, ax = plt.subplots(figsize=(max(12.0, 0.72 * len(selected)), 5.4))
-    ax.bar(x, runtime, label="Measured makespan", color="#118ab2")
-    ax.bar(x, solver, bottom=runtime, label="Standard solve", color="#f77f00")
-    for idx, pct in enumerate(solver):
-        ax.text(idx, min(99.0, runtime[idx] + solver[idx] + 1.0), f"{pct:.1f}%", ha="center", va="bottom", fontsize=9, rotation=90)
-    ax.set_ylim(0, 108)
-    ax.set_ylabel("Share of solve + measured makespan", fontsize=13)
+    fig, ax = plt.subplots(figsize=(13.6, 5.0))
+    ax.set_axisbelow(True)
+    width = 0.64
+    bar_linewidth = 3.4
+    ax.bar(
+        x,
+        runtime,
+        width=width,
+        color=MAKESPAN_FILL,
+        edgecolor=MAKESPAN_EDGE,
+        linewidth=bar_linewidth,
+        zorder=3,
+    )
+    ax.bar(
+        x,
+        solver,
+        width=width,
+        bottom=runtime,
+        color=SOLVER_FILL,
+        edgecolor=SOLVER_EDGE,
+        linewidth=bar_linewidth,
+        zorder=3,
+    )
+    edge_padding = 0.2
+    ax.set_xlim(float(x[0]) - width / 2 - edge_padding, float(x[-1]) + width / 2 + edge_padding)
+    for position, percentage in zip(x, solver):
+        ax.text(
+            position,
+            102.5,
+            f"{percentage:.1f}%",
+            ha="center",
+            va="bottom",
+            fontsize=19,
+            color=FIGURE9_TEXT_COLOR,
+            fontweight="bold",
+            zorder=4,
+        )
+
+    ax.set_ylabel("Proportion", fontsize=26)
+    ax.yaxis.set_label_coords(-0.087, 0.52)
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=10)
-    ax.set_title(f"H100 {devices}-GPU Figure 9 Cases", fontsize=15)
-    ax.yaxis.set_major_formatter(lambda value, _: f"{value:.0f}%")
-    ax.grid(True, axis="y", alpha=0.25, linestyle="--")
-    ax.legend(frameon=False, ncol=2, loc="upper center", bbox_to_anchor=(0.5, 1.12))
-    fig.tight_layout()
+    ax.set_xticklabels(labels, fontsize=19)
+    ax.tick_params(axis="y", labelsize=22)
+    ax.set_ylim(0, 114)
+    ax.yaxis.set_major_locator(FixedLocator([0, 20, 40, 60, 80, 100]))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:.0f}%"))
+    ax.grid(False, axis="x")
+    ax.grid(True, axis="y", zorder=0)
+    handles = [
+        Patch(
+            facecolor=MAKESPAN_FILL,
+            edgecolor=MAKESPAN_EDGE,
+            linewidth=bar_linewidth,
+            label="Collective Time",
+        ),
+        Patch(
+            facecolor=SOLVER_FILL,
+            edgecolor=SOLVER_EDGE,
+            linewidth=bar_linewidth,
+            label="Synthesis time",
+        ),
+    ]
+    ax.legend(
+        handles=handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.28),
+        ncol=2,
+        frameon=False,
+        fontsize=21,
+        handletextpad=0.5,
+        columnspacing=2.0,
+    )
+    fig.subplots_adjust(top=0.62, bottom=0.18, left=0.13, right=0.99)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path)
+    fig.savefig(output_path, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
 
 def write_figure9_markdown(path: Path, rows: list[dict[str, Any]]) -> None:
-    lines = ["# Figure 9 H100 Standard Solver Share", ""]
-    lines.append("The measured-system makespan uses `avg_collective_ms` from the Figure 9 bandwidth data, which is the collective time used to compute bandwidth. `real_total_us` additionally retains `avg_ms`, including pack/unpack.")
+    lines = ["# Figure 16 H100 Standard Solver Share", ""]
+    lines.append("The displayed cases and 64-device-equivalent batch labels match the corresponding Figure 9 panels. Each synthesis time is the minimum of the recorded serial repetitions. The measured-system makespan uses `avg_collective_ms` from the Figure 9 bandwidth data, which is the collective time used to compute bandwidth. `real_total_us` additionally retains `avg_ms`, including pack/unpack.")
     lines.append("")
     for devices in (8, 16):
-        selected = [row for row in rows if int(row["target_devices"]) == devices]
+        selected = figure9_selected_rows(rows, devices)
         if not selected:
             continue
         lines.append(f"## {devices} GPU")
@@ -1191,7 +1332,11 @@ def write_figure9_markdown(path: Path, rows: list[dict[str, Any]]) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
-def selected_tasks(repo_root: Path, stage: str) -> list[Task]:
+def selected_tasks(
+    repo_root: Path,
+    stage: str,
+    figure9_repetitions: int = FIGURE9_REPETITIONS,
+) -> list[Task]:
     tasks: list[Task] = []
     if stage in {"all", "scalability"}:
         tasks.extend(base.scalability_tasks(repo_root))
@@ -1201,11 +1346,15 @@ def selected_tasks(repo_root: Path, stage: str) -> list[Task]:
     if stage in {"all", "speed"}:
         tasks.extend(speed_link_tasks(repo_root))
     if stage in {"all", "figure9"}:
-        tasks.extend(figure9_tasks(repo_root))
+        tasks.extend(figure9_tasks(repo_root, figure9_repetitions))
     return tasks
 
 
-def parse_and_write(repo_root: Path) -> dict[str, int]:
+def parse_and_write(
+    repo_root: Path,
+    figure9_repetitions: int = FIGURE9_REPETITIONS,
+    stage: str = "all",
+) -> dict[str, int]:
     parsed_dir = repo_root / "evaluation_assets" / "parsed"
     plot_dir = repo_root / "evaluation_assets" / "plots"
 
@@ -1234,11 +1383,13 @@ def parse_and_write(repo_root: Path) -> dict[str, int]:
         plot_speed_link(speed_summary, plot_dir / "Speed_Link_Breakdown.pdf")
         write_speed_markdown(parsed_dir / "speed_link_breakdown.md", speed_summary)
 
-    figure9_rows = build_figure9_breakeven_rows(repo_root)
-    write_csv(parsed_dir / "speed_breakeven.csv", figure9_rows)
-    write_figure9_markdown(parsed_dir / "speed_breakeven.md", figure9_rows)
-    plot_figure9_solver_share(figure9_rows, 8, plot_dir / "Speed_Breakeven_8GPU.pdf")
-    plot_figure9_solver_share(figure9_rows, 16, plot_dir / "Speed_Breakeven_16GPU.pdf")
+    figure9_rows: list[dict[str, Any]] = []
+    if stage in {"all", "figure9", "parse-only"}:
+        figure9_rows = build_figure9_breakeven_rows(repo_root, figure9_repetitions)
+        write_csv(parsed_dir / "speed_breakeven.csv", figure9_rows)
+        write_figure9_markdown(parsed_dir / "speed_breakeven.md", figure9_rows)
+        plot_figure9_solver_share(figure9_rows, 8, plot_dir / "Speed_Breakeven_8GPU.pdf")
+        plot_figure9_solver_share(figure9_rows, 16, plot_dir / "Speed_Breakeven_16GPU.pdf")
 
     return {
         "scalability_rows": len(scalability_rows),
@@ -1254,21 +1405,33 @@ def parse_and_write(repo_root: Path) -> dict[str, int]:
 def main() -> None:
     args = parse_args()
     repo_root = args.repo_root.resolve()
+    if args.figure9_repetitions != FIGURE9_REPETITIONS:
+        raise ValueError(
+            f"--figure9-repetitions must be exactly {FIGURE9_REPETITIONS}"
+        )
     if args.stage != "parse-only":
-        tasks = selected_tasks(repo_root, args.stage)
+        tasks = selected_tasks(repo_root, args.stage, args.figure9_repetitions)
+        serial_tasks = [task for task in tasks if task.stage == "speed_breakeven"]
+        parallel_tasks = [task for task in tasks if task.stage != "speed_breakeven"]
         print(
             json.dumps(
                 {
                     "stage": args.stage,
                     "task_count": len(tasks),
                     "max_workers": args.max_workers,
+                    "figure16_task_count": len(serial_tasks),
+                    "figure16_workers": 1,
+                    "figure16_repetitions": args.figure9_repetitions,
                     "force": args.force,
                 },
                 indent=2,
             )
         )
-        run_tasks(repo_root, tasks, args.force, args.max_workers)
-    result = parse_and_write(repo_root)
+        if parallel_tasks:
+            run_tasks(repo_root, parallel_tasks, args.force, args.max_workers)
+        if serial_tasks:
+            run_tasks(repo_root, serial_tasks, args.force, 1)
+    result = parse_and_write(repo_root, args.figure9_repetitions, args.stage)
     print(json.dumps(result, indent=2))
 
 
